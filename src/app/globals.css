@@ -1,0 +1,281 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* CSS Variables for theming */
+@layer base {
+    :root {
+        /* Background colors */
+        --background: 0 0% 100%;
+        --foreground: 222.2 84% 4.9%;
+
+        /* Card colors */
+        --card: 0 0% 100%;
+        --card-foreground: 222.2 84% 4.9%;
+
+        /* Popover colors */
+        --popover: 0 0% 100%;
+        --popover-foreground: 222.2 84% 4.9%;
+
+        /* Primary colors */
+        --primary: 199 89% 48%;
+        --primary-foreground: 210 40% 98%;
+
+        /* Secondary colors */
+        --secondary: 210 40% 96.1%;
+        --secondary-foreground: 222.2 47.4% 11.2%;
+
+        /* Muted colors */
+        --muted: 210 40% 96.1%;
+        --muted-foreground: 215.4 16.3% 46.9%;
+
+        /* Accent colors */
+        --accent: 210 40% 96.1%;
+        --accent-foreground: 222.2 47.4% 11.2%;
+
+        /* Destructive colors */
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 210 40% 98%;
+
+        /* Border & Input colors */
+        --border: 214.3 31.8% 91.4%;
+        --input: 214.3 31.8% 91.4%;
+        --ring: 199 89% 48%;
+
+        /* Radius */
+        --radius: 0.5rem;
+    }
+
+    .dark {
+        /* Background colors - dark mode */
+        --background: 222.2 84% 4.9%;
+        --foreground: 210 40% 98%;
+
+        /* Card colors - dark mode */
+        --card: 222.2 84% 4.9%;
+        --card-foreground: 210 40% 98%;
+
+        /* Popover colors - dark mode */
+        --popover: 222.2 84% 4.9%;
+        --popover-foreground: 210 40% 98%;
+
+        /* Primary colors - dark mode */
+        --primary: 199 89% 48%;
+        --primary-foreground: 222.2 47.4% 11.2%;
+
+        /* Secondary colors - dark mode */
+        --secondary: 217.2 32.6% 17.5%;
+        --secondary-foreground: 210 40% 98%;
+
+        /* Muted colors - dark mode */
+        --muted: 217.2 32.6% 17.5%;
+        --muted-foreground: 215 20.2% 65.1%;
+
+        /* Accent colors - dark mode */
+        --accent: 217.2 32.6% 17.5%;
+        --accent-foreground: 210 40% 98%;
+
+        /* Destructive colors - dark mode */
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 210 40% 98%;
+
+        /* Border & Input colors - dark mode */
+        --border: 217.2 32.6% 17.5%;
+        --input: 217.2 32.6% 17.5%;
+        --ring: 199 89% 48%;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+        font-feature-settings: 'rlig' 1, 'calt' 1;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        @apply bg-muted;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        @apply bg-muted-foreground/30 rounded-full;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        @apply bg-muted-foreground/50;
+    }
+
+    /* Focus visible styles */
+    :focus-visible {
+        @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+    }
+
+    /* Selection styles */
+    ::selection {
+        @apply bg-primary/30 text-foreground;
+    }
+}
+
+@layer components {
+
+    /* Card component */
+    .card {
+        @apply bg-card text-card-foreground rounded-lg border shadow-sm;
+    }
+
+    /* Button base styles */
+    .btn {
+        @apply inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .btn-primary {
+        @apply bg-primary text-primary-foreground hover:bg-primary/90;
+    }
+
+    .btn-secondary {
+        @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+    }
+
+    .btn-outline {
+        @apply border border-input bg-background hover:bg-accent hover:text-accent-foreground;
+    }
+
+    .btn-destructive {
+        @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
+    }
+
+    .btn-ghost {
+        @apply hover:bg-accent hover:text-accent-foreground;
+    }
+
+    .btn-link {
+        @apply text-primary underline-offset-4 hover:underline;
+    }
+
+    /* Input base styles */
+    .input {
+        @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    /* Label styles */
+    .label {
+        @apply text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70;
+    }
+
+    /* Table styles */
+    .table {
+        @apply w-full caption-bottom text-sm;
+    }
+
+    .table-header {
+        @apply [&_tr]:border-b;
+    }
+
+    .table-row {
+        @apply border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted;
+    }
+
+    .table-head {
+        @apply h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0;
+    }
+
+    .table-cell {
+        @apply p-4 align-middle [&:has([role=checkbox])]:pr-0;
+    }
+
+    /* Badge styles */
+    .badge {
+        @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
+    }
+
+    /* Skeleton loading */
+    .skeleton {
+        @apply animate-pulse rounded-md bg-muted;
+    }
+
+    /* Toast styles */
+    .toast {
+        @apply pointer-events-auto flex w-full max-w-md items-center justify-between space-x-4 overflow-hidden rounded-md border p-6 pr-8 shadow-lg transition-all;
+    }
+    .toast[data-state="open"] {
+        animation: slide-in 0.2s ease-out forwards;
+    }
+    .toast[data-state="closed"] {
+        animation: fade-out 0.15s ease-in forwards;
+    }
+    .toast[data-swipe="cancel"] {
+        transform: translateX(0);
+    }
+    .toast[data-swipe="end"] {
+        transform: translateX(var(--radix-toast-swipe-end-x));
+        animation: fade-out 0.15s ease-in forwards;
+    }
+    .toast[data-swipe="move"] {
+        transform: translateX(var(--radix-toast-swipe-move-x));
+        transition: none;
+    }
+}
+
+@layer utilities {
+
+    /* Text balance for better readability */
+    .text-balance {
+        text-wrap: balance;
+    }
+
+    /* Hide scrollbar but keep functionality */
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Truncate text with ellipsis */
+    .truncate-line {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Safe area padding for mobile */
+    .safe-top {
+        padding-top: env(safe-area-inset-top);
+    }
+
+    .safe-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
+
+@keyframes slide-in {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}

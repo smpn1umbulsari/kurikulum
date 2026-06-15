@@ -1,0 +1,345 @@
+# Entity Relationship Diagram (ERD): Guru Spenturi v2
+
+File ini berisi visualisasi hubungan entitas database menggunakan format Mermaid. 
+
+```mermaid
+erDiagram
+    %% ============================================================
+    %% AUTENTIKASI & PENGGUNA
+    %% ============================================================
+    AUTH_USERS {
+        uuid id PK
+    }
+
+    PENGGUNA {
+        uuid id PK_FK
+        text username
+        text nama
+        enum role
+        enum status
+    }
+
+    TUGAS_TAMBAHAN {
+        uuid id PK
+        uuid pengguna_id FK
+        uuid semester_id FK
+        enum jenis
+        uuid kelas_real_id FK
+    }
+
+    %% ============================================================
+    %% PERIODE AKADEMIK
+    %% ============================================================
+    TAHUN_PELAJARAN {
+        uuid id PK
+        text nama
+    }
+
+    SEMESTER {
+        uuid id PK
+        uuid tahun_pelajaran_id FK
+        text nama
+        enum status
+        enum mode_penilaian
+    }
+
+    %% ============================================================
+    %% DATA MASTER
+    %% ============================================================
+    GURU {
+        uuid id PK
+        text kode_guru
+        smallint urutan
+        text nama
+        enum status_pegawai
+        text nip
+        enum status
+        uuid pengguna_id FK
+    }
+
+    SISWA {
+        uuid id PK
+        text nis
+        text nisn
+        text nama
+        enum jenis_kelamin
+        enum status
+        uuid pengguna_id FK
+    }
+
+    KEPALA_SEKOLAH {
+        uuid id PK
+        text nama
+        text nip
+        text tanda_tangan_url
+        enum status
+    }
+
+    MATA_PELAJARAN {
+        uuid id PK
+        text kode_mapel
+        text nama
+        text kelompok
+        enum status
+    }
+
+    KELAS_DAPO {
+        uuid id PK
+        uuid semester_id FK
+        text nama
+        smallint jenjang
+    }
+
+    KELAS_REAL {
+        uuid id PK
+        uuid semester_id FK
+        text nama
+        smallint jenjang
+    }
+
+    SISWA_KELAS {
+        uuid id PK
+        uuid siswa_id FK
+        uuid semester_id FK
+        uuid kelas_dapo_id FK
+        uuid kelas_real_id FK
+        smallint nomor_absen_dapo
+        smallint nomor_absen_real
+    }
+
+    %% ============================================================
+    %% KURIKULUM
+    %% ============================================================
+    KOMPONEN_NILAI {
+        uuid id PK
+        uuid semester_id FK
+        uuid mata_pelajaran_id FK
+        numeric bobot_uh
+        numeric bobot_pts
+        numeric bobot_semester
+    }
+
+    PEMBAGIAN_MENGAJAR_DAPO {
+        uuid id PK
+        uuid semester_id FK
+        uuid guru_id FK
+        uuid mata_pelajaran_id FK
+        uuid kelas_dapo_id FK
+        smallint jam_pelajaran
+    }
+
+    PEMBAGIAN_MENGAJAR_REAL {
+        uuid id PK
+        uuid semester_id FK
+        uuid guru_id FK
+        uuid mata_pelajaran_id FK
+        uuid kelas_real_id FK
+        smallint jam_pelajaran
+    }
+
+    %% ============================================================
+    %% PENILAIAN
+    %% ============================================================
+    NILAI {
+        uuid id PK
+        uuid semester_id FK
+        uuid siswa_id FK
+        uuid mata_pelajaran_id FK
+        numeric uh1
+        numeric uh2
+        numeric uh3
+        numeric uh4
+        numeric uh5
+        numeric pts
+        numeric nilai_semester
+        numeric bobot_uh_pct
+        numeric bobot_pts_pct
+        numeric bobot_semester_pct
+        numeric rapor
+        boolean terkunci
+    }
+
+    KEHADIRAN {
+        uuid id PK
+        uuid semester_id FK
+        uuid siswa_id FK
+        smallint sakit
+        smallint izin
+        smallint alpha
+        text catatan_wali
+    }
+
+    %% ============================================================
+    %% ASESMEN
+    %% ============================================================
+    ASESMEN {
+        uuid id PK
+        uuid semester_id FK
+        enum jenis_ujian
+        date tanggal_mulai
+        date tanggal_selesai
+        date tanggal_ttd
+        text kode_nus
+        enum acuan_kelas
+    }
+
+    ASESMEN_JADWAL {
+        uuid id PK
+        uuid asesmen_id FK
+        enum hari
+        date tanggal
+        enum jam
+        time jam_mulai
+        smallint durasi_menit
+        uuid mata_pelajaran_id FK
+        smallint urutan
+    }
+
+    ASESMEN_RUANG {
+        uuid id PK
+        uuid asesmen_id FK
+        jsonb pengaturan
+        jsonb pengaturan_7
+        jsonb pengaturan_8
+        jsonb pengaturan_9
+    }
+
+    ASESMEN_SISWA_RUANG {
+        uuid id PK
+        uuid asesmen_id FK
+        uuid siswa_id FK
+        smallint nomor_ruang
+        smallint nomor_urut
+    }
+
+    ASESMEN_NOMOR_PESERTA {
+        uuid id PK
+        uuid asesmen_id FK
+        uuid siswa_id FK
+        text nomor_peserta
+    }
+
+    KEPENGAWASAN {
+        uuid id PK
+        uuid asesmen_id FK
+        jsonb matrix_mengawasi
+        jsonb pengaturan
+        boolean publish_kartu
+    }
+
+    KEPENGAWASAN_ASSIGNMENTS {
+        uuid id PK
+        uuid kepengawasan_id FK
+        uuid jadwal_id FK
+        smallint nomor_ruang
+        uuid guru_id FK
+        smallint urutan_pengawas
+    }
+
+    KARTU_PENGAWAS {
+        uuid id PK
+        uuid asesmen_id FK
+        uuid guru_id FK
+        timestamptz published_at
+    }
+
+    %% ============================================================
+    %% SISTEM
+    %% ============================================================
+    AUDIT_LOG {
+        uuid id PK
+        uuid pengguna_id FK
+        text aksi
+        text tabel
+        uuid record_id
+        jsonb data_sebelum
+        jsonb data_sesudah
+    }
+
+    BACKUP_LOG {
+        uuid id PK
+        uuid pengguna_id FK
+        text keterangan
+        text storage_path
+        bigint ukuran_bytes
+        enum status
+    }
+
+    IMPORT_TEMPLATE_LOG {
+        uuid id PK
+        uuid semester_id FK
+        uuid kelas_real_id FK
+        uuid mata_pelajaran_id FK
+        timestamptz generated_at
+        text storage_path
+    }
+
+    PENGATURAN_SEKOLAH {
+        uuid id PK
+        text nama_sekolah
+        text alamat
+        text logo_url
+        text template_rapor_url
+        enum mode_ttd_kepsek
+        boolean mode_pemeliharaan
+    }
+
+    %% ============================================================
+    %% RELASI
+    %% ============================================================
+    AUTH_USERS ||--|| PENGGUNA : "extends"
+    PENGGUNA ||--o| GURU : "memiliki akun"
+    PENGGUNA ||--o| SISWA : "memiliki akun"
+    PENGGUNA ||--o{ TUGAS_TAMBAHAN : "ditugaskan"
+
+    TAHUN_PELAJARAN ||--o{ SEMESTER : "memiliki"
+    SEMESTER ||--o{ TUGAS_TAMBAHAN : "berlaku pada"
+    SEMESTER ||--o{ KELAS_DAPO : "memiliki"
+    SEMESTER ||--o{ KELAS_REAL : "memiliki"
+    SEMESTER ||--o{ SISWA_KELAS : "berlaku pada"
+    SEMESTER ||--o{ KOMPONEN_NILAI : "konfigurasi"
+    SEMESTER ||--o{ PEMBAGIAN_MENGAJAR_DAPO : "berlaku pada"
+    SEMESTER ||--o{ PEMBAGIAN_MENGAJAR_REAL : "berlaku pada"
+    SEMESTER ||--o{ NILAI : "berlaku pada"
+    SEMESTER ||--o{ KEHADIRAN : "berlaku pada"
+    SEMESTER ||--o{ ASESMEN : "berlaku pada"
+    SEMESTER ||--o{ IMPORT_TEMPLATE_LOG : "berlaku pada"
+
+    KELAS_REAL ||--o{ TUGAS_TAMBAHAN : "diampu wali kelas"
+
+    SISWA ||--|| SISWA_KELAS : "terdaftar"
+    SISWA ||--o{ NILAI : "memiliki"
+    SISWA ||--o{ KEHADIRAN : "memiliki"
+    SISWA ||--o{ ASESMEN_SISWA_RUANG : "ditempatkan"
+    SISWA ||--o{ ASESMEN_NOMOR_PESERTA : "memiliki"
+
+    KELAS_DAPO ||--o{ SISWA_KELAS : "menampung"
+    KELAS_REAL ||--o{ SISWA_KELAS : "menampung"
+    KELAS_DAPO ||--o{ PEMBAGIAN_MENGAJAR_DAPO : "diajar pada"
+    KELAS_REAL ||--o{ PEMBAGIAN_MENGAJAR_REAL : "diajar pada"
+    KELAS_REAL ||--o{ IMPORT_TEMPLATE_LOG : "konteks template"
+
+    GURU ||--o{ PEMBAGIAN_MENGAJAR_DAPO : "mengajar"
+    GURU ||--o{ PEMBAGIAN_MENGAJAR_REAL : "mengajar"
+    GURU ||--o{ KEPENGAWASAN_ASSIGNMENTS : "mengawas"
+    GURU ||--o{ KARTU_PENGAWAS : "memiliki"
+
+    MATA_PELAJARAN ||--o{ KOMPONEN_NILAI : "dikonfigurasi"
+    MATA_PELAJARAN ||--o{ PEMBAGIAN_MENGAJAR_DAPO : "diajarkan"
+    MATA_PELAJARAN ||--o{ PEMBAGIAN_MENGAJAR_REAL : "diajarkan"
+    MATA_PELAJARAN ||--o{ NILAI : "dinilai"
+    MATA_PELAJARAN ||--o{ ASESMEN_JADWAL : "diujikan"
+    MATA_PELAJARAN ||--o{ IMPORT_TEMPLATE_LOG : "konteks template"
+
+    KOMPONEN_NILAI ||--o{ NILAI : "snapshot bobot ke"
+
+    ASESMEN ||--o{ ASESMEN_JADWAL : "memiliki"
+    ASESMEN ||--|| ASESMEN_RUANG : "konfigurasi"
+    ASESMEN ||--o{ ASESMEN_SISWA_RUANG : "menempatkan"
+    ASESMEN ||--o{ ASESMEN_NOMOR_PESERTA : "menetapkan"
+    ASESMEN ||--|| KEPENGAWASAN : "memiliki"
+    ASESMEN ||--o{ KARTU_PENGAWAS : "menerbitkan"
+
+    ASESMEN_JADWAL ||--o{ KEPENGAWASAN_ASSIGNMENTS : "dijaga pada"
+    KEPENGAWASAN ||--o{ KEPENGAWASAN_ASSIGNMENTS : "terdiri dari"
+```
