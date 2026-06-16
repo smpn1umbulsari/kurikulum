@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect, useCallback } from 'react';
 import { useAuth, useActiveSemester } from '@/components/providers/session-provider';
 import { useDashboard } from '@/hooks/useDashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Users,
     BookOpen,
@@ -125,10 +127,20 @@ function DashboardSkeleton() {
  */
 function SuperadminDashboard() {
     const { profile } = useAuth();
-    const { data, loading, error, refresh } = useDashboard(profile);
+    const { data, loading, error, fetchDashboard, refresh } = useDashboard();
+
+    useEffect(() => {
+        if (profile?.id) {
+            fetchDashboard(profile.id);
+        }
+    }, [profile?.id, fetchDashboard]);
+
+    const handleRetry = useCallback(() => {
+        if (profile?.id) refresh(profile.id);
+    }, [profile?.id, refresh]);
 
     if (loading) return <DashboardSkeleton />;
-    if (error) return <ErrorState message={error} onRetry={refresh} />;
+    if (error) return <ErrorState message={error} onRetry={handleRetry} />;
 
     const dashboard = data as any;
     const stats = dashboard?.stats || {};
@@ -259,10 +271,20 @@ function SuperadminDashboard() {
  */
 function AdminDashboard() {
     const { profile } = useAuth();
-    const { data, loading, error, refresh } = useDashboard(profile);
+    const { data, loading, error, fetchDashboard, refresh } = useDashboard();
+
+    useEffect(() => {
+        if (profile?.id) {
+            fetchDashboard(profile.id);
+        }
+    }, [profile?.id, fetchDashboard]);
+
+    const handleRetry = useCallback(() => {
+        if (profile?.id) refresh(profile.id);
+    }, [profile?.id, refresh]);
 
     if (loading) return <DashboardSkeleton />;
-    if (error) return <ErrorState message={error} onRetry={refresh} />;
+    if (error) return <ErrorState message={error} onRetry={handleRetry} />;
 
     const dashboard = data as any;
     const stats = dashboard?.stats || {};
@@ -377,10 +399,20 @@ function AdminDashboard() {
  */
 function GuruDashboard() {
     const { profile } = useAuth();
-    const { data, loading, error, refresh } = useDashboard(profile);
+    const { data, loading, error, fetchDashboard, refresh } = useDashboard();
+
+    useEffect(() => {
+        if (profile?.id) {
+            fetchDashboard(profile.id);
+        }
+    }, [profile?.id, fetchDashboard]);
+
+    const handleRetry = useCallback(() => {
+        if (profile?.id) refresh(profile.id);
+    }, [profile?.id, refresh]);
 
     if (loading) return <DashboardSkeleton />;
-    if (error) return <ErrorState message={error} onRetry={refresh} />;
+    if (error) return <ErrorState message={error} onRetry={handleRetry} />;
 
     const dashboard = data as any;
     const stats = dashboard?.stats || {};
@@ -553,7 +585,4 @@ function StatCard({
             </CardContent>
         </Card>
     );
-}
-
-// Import Button for ErrorState
-import { Button } from '@/components/ui/button';
+}

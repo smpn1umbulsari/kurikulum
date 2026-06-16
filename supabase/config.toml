@@ -3,8 +3,8 @@
 # Guru Spenturi v2
 # =============================================================================
 
-[project]
-project_id = "guru-spenturi-v2"
+# [project]
+# project_id = "guru-spenturi-v2"
 
 # =============================================================================
 # API Configuration
@@ -80,9 +80,9 @@ pop3_port = 54326
 # Edge Functions Configuration
 # =============================================================================
 
-[edge_functions]
-enabled = true
-serve_static = false
+# [edge_functions]
+# enabled = true
+# serve_static = false
 
 # =============================================================================
 # Realtime Configuration

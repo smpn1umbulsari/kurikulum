@@ -1,0 +1,20 @@
+{
+  "app": "DATA SISWA",
+  "version": 2,
+  "exported_at": "2026-06-16T13:22:05.794Z",
+  "generated_at": "2026-06-16T13:49:05.534Z",
+  "record_counts": {
+    "guru": 43,
+    "mata_pelajaran": 18,
+    "kelas": 36,
+    "siswa_aktif": 0,
+    "siswa_lulus": 279,
+    "mengajar_dapo": 262,
+    "mengajar_real": 301,
+    "tugas_tambahan": 24,
+    "guru_tugas_tambahan": 40,
+    "nilai": 17757,
+    "kehadiran": 577,
+    "catatan_wali": 578
+  }
+}

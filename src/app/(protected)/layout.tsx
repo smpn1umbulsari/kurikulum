@@ -43,7 +43,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 const navigationItems = [
     {
         title: 'Dashboard',
-        href: '/(protected)/dashboard',
+        href: '/dashboard',
         icon: LayoutDashboard,
         roles: ['superadmin', 'admin', 'urusan', 'guru', 'siswa'],
     },
@@ -52,15 +52,15 @@ const navigationItems = [
         icon: Users,
         roles: ['superadmin', 'admin', 'urusan'],
         children: [
-            { title: 'Tahun Pelajaran', href: '/(protected)/master/tahun-pelajaran', roles: ['superadmin', 'admin'] },
-            { title: 'Semester', href: '/(protected)/master/semester', roles: ['superadmin', 'admin'] },
-            { title: 'Guru', href: '/(protected)/master/guru', roles: ['superadmin', 'admin'] },
-            { title: 'Siswa', href: '/(protected)/master/siswa', roles: ['superadmin', 'admin', 'urusan'] },
-            { title: 'Mata Pelajaran', href: '/(protected)/master/mata-pelajaran', roles: ['superadmin', 'admin'] },
-            { title: 'Kelas Dapodik', href: '/(protected)/master/kelas-dapo', roles: ['superadmin', 'admin', 'urusan'] },
-            { title: 'Kelas Real', href: '/(protected)/master/kelas-real', roles: ['superadmin', 'admin', 'urusan'] },
-            { title: 'Pembagian Kelas', href: '/(protected)/master/pembagian-kelas', roles: ['superadmin', 'admin', 'urusan'] },
-            { title: 'Kepala Sekolah', href: '/(protected)/master/kepala-sekolah', roles: ['superadmin', 'admin'] },
+            { title: 'Tahun Pelajaran', href: '/master/tahun-pelajaran', roles: ['superadmin', 'admin'] },
+            { title: 'Semester', href: '/master/semester', roles: ['superadmin', 'admin'] },
+            { title: 'Guru', href: '/master/guru', roles: ['superadmin', 'admin'] },
+            { title: 'Siswa', href: '/master/siswa', roles: ['superadmin', 'admin', 'urusan'] },
+            { title: 'Mata Pelajaran', href: '/master/mata-pelajaran', roles: ['superadmin', 'admin'] },
+            { title: 'Kelas Dapodik', href: '/master/kelas-dapo', roles: ['superadmin', 'admin', 'urusan'] },
+            { title: 'Kelas Real', href: '/master/kelas-real', roles: ['superadmin', 'admin', 'urusan'] },
+            { title: 'Pembagian Kelas', href: '/master/pembagian-kelas', roles: ['superadmin', 'admin', 'urusan'] },
+            { title: 'Kepala Sekolah', href: '/master/kepala-sekolah', roles: ['superadmin', 'admin'] },
         ],
     },
     {
@@ -68,9 +68,9 @@ const navigationItems = [
         icon: UserCheck,
         roles: ['superadmin', 'admin', 'urusan'],
         children: [
-            { title: 'Dapodik', href: '/(protected)/mengajar/dapodik', roles: ['superadmin', 'admin', 'urusan'] },
-            { title: 'Real', href: '/(protected)/mengajar/real', roles: ['superadmin', 'admin', 'urusan'] },
-            { title: 'Sinkronisasi', href: '/(protected)/mengajar/sinkronisasi', roles: ['superadmin', 'admin'] },
+            { title: 'Dapodik', href: '/master/pembagian-mengajar-dapo', roles: ['superadmin', 'admin', 'urusan'] },
+            { title: 'Real', href: '/master/pembagian-mengajar-real', roles: ['superadmin', 'admin', 'urusan'] },
+            { title: 'Sinkronisasi', href: '/master/sinkronisasi-mengajar', roles: ['superadmin', 'admin'] },
         ],
     },
     {
@@ -78,9 +78,7 @@ const navigationItems = [
         icon: CheckSquare,
         roles: ['superadmin', 'admin', 'urusan'],
         children: [
-            { title: 'Wali Kelas', href: '/(protected)/tugas/wali-kelas', roles: ['superadmin', 'admin', 'urusan'] },
-            { title: 'Koordinator Jenjang', href: '/(protected)/tugas/koordinator', roles: ['superadmin', 'admin'] },
-            { title: 'Kepala Kurikulum', href: '/(protected)/tugas/kepala-kurikulum', roles: ['superadmin', 'admin'] },
+            { title: 'Tugas Tambahan', href: '/master/tugas-tambahan', roles: ['superadmin', 'admin', 'urusan'] },
         ],
     },
     {
@@ -88,11 +86,9 @@ const navigationItems = [
         icon: ClipboardList,
         roles: ['superadmin', 'admin', 'urusan', 'guru'],
         children: [
-            { title: 'Input Nilai', href: '/(protected)/nilai/input', roles: ['admin', 'urusan', 'guru'] },
-            { title: 'Upload Excel', href: '/(protected)/nilai/upload', roles: ['admin', 'urusan', 'guru'] },
-            { title: 'Rekap Nilai', href: '/(protected)/nilai/rekap', roles: ['superadmin', 'admin', 'urusan'] },
-            { title: 'Komponen Nilai', href: '/(protected)/nilai/komponen', roles: ['superadmin', 'admin'] },
-            { title: 'Kehadiran', href: '/(protected)/nilai/kehadiran', roles: ['admin', 'urus'] },
+            { title: 'Input Nilai', href: '/nilai', roles: ['admin', 'urusan', 'guru'] },
+            { title: 'Upload Excel', href: '/nilai/upload', roles: ['admin', 'urusan', 'guru'] },
+            { title: 'Rekap Nilai', href: '/nilai/rekap', roles: ['superadmin', 'admin', 'urusan'] },
         ],
     },
     {
@@ -100,8 +96,8 @@ const navigationItems = [
         icon: FileText,
         roles: ['admin', 'urus'],
         children: [
-            { title: 'Ekspor Rapor PDF', href: '/(protected)/rapor/ekspor', roles: ['admin', 'urus'] },
-            { title: 'Validasi Data', href: '/(protected)/rapor/validasi', roles: ['superadmin', 'admin', 'urus'] },
+            { title: 'Ekspor Rapor PDF', href: '/rapor/ekspor', roles: ['admin', 'urus'] },
+            { title: 'Validasi Data', href: '/master/validasi-data', roles: ['superadmin', 'admin', 'urus'] },
         ],
     },
     {
@@ -109,31 +105,18 @@ const navigationItems = [
         icon: Calendar,
         roles: ['superadmin', 'admin', 'urus'],
         children: [
-            { title: 'Setup Asesmen', href: '/(protected)/asesmen/setup', roles: ['superadmin', 'admin', 'urus'] },
-            { title: 'Jadwal Ujian', href: '/(protected)/asesmen/jadwal', roles: ['superadmin', 'admin', 'urus'] },
-            { title: 'Matrix Pengawas', href: '/(protected)/asesmen/matrix-pengawas', roles: ['superadmin', 'admin', 'urus'] },
-            { title: 'Pembagian Ruang', href: '/(protected)/asesmen/ruang', roles: ['superadmin', 'admin', 'urus'] },
-            { title: 'Pembagian Pengawas', href: '/(protected)/asesmen/pembagian-pengawas', roles: ['superadmin', 'admin', 'urus'] },
-            { title: 'Kartu Pengawas', href: '/(protected)/asesmen/kartu-pengawas', roles: ['superadmin', 'admin', 'urus'] },
-            { title: 'Nomor Peserta', href: '/(protected)/asesmen/nomor-peserta', roles: ['superadmin', 'admin', 'urus'] },
-            { title: 'Ekspor Dokumen', href: '/(protected)/asesmen/ekspor', roles: ['superadmin', 'admin', 'urus'] },
+            { title: 'Setup Asesmen', href: '/master/asesmen', roles: ['superadmin', 'admin', 'urus'] },
         ],
     },
     {
-        title: 'Validasi Data',
-        href: '/(protected)/validasi',
-        icon: AlertTriangle,
-        roles: ['superadmin', 'admin', 'urus'],
-    },
-    {
         title: 'Backup & Restore',
-        href: '/(protected)/backup',
+        href: '/master/backup',
         icon: BarChart3,
         roles: ['superadmin', 'admin'],
     },
     {
         title: 'Audit Log',
-        href: '/(protected)/audit-log',
+        href: '/master/audit-log',
         icon: Shield,
         roles: ['superadmin'],
     },
@@ -142,9 +125,7 @@ const navigationItems = [
         icon: Settings,
         roles: ['superadmin', 'admin'],
         children: [
-            { title: 'Umum', href: '/(protected)/settings/umum', roles: ['superadmin', 'admin'] },
-            { title: 'Template Rapor', href: '/(protected)/settings/template-rapor', roles: ['superadmin', 'admin'] },
-            { title: 'Manajemen User', href: '/(protected)/settings/users', roles: ['superadmin'] },
+            { title: 'Template Rapor', href: '/settings/template-rapor', roles: ['superadmin', 'admin'] },
         ],
     },
 ];
@@ -290,7 +271,7 @@ export default function ProtectedLayout({
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem asChild>
-                                    <Link href="/(protected)/settings/-profile">
+                                    <Link href="/settings/profile">
                                         <Shield className="mr-2 h-4 w-4" />
                                         Profil Saya
                                     </Link>

@@ -38,12 +38,10 @@ ALTER TABLE pengaturan_sekolah ENABLE ROW LEVEL SECURITY;
 -- PENGGUNA (Users) Policies
 -- =============================================================================
 
--- Superadmin & Admin can view all users
+-- Allow SELECT for authenticated users to prevent infinite recursion
 CREATE POLICY select_pengguna_policy ON pengguna
     FOR SELECT
-    USING (
-        (SELECT role FROM pengguna WHERE id = auth.uid()) IN ('superadmin', 'admin')
-    );
+    USING (auth.uid() IS NOT NULL);
 
 -- Only superadmin can insert/update/delete users
 CREATE POLICY insert_pengguna_policy ON pengguna
@@ -63,11 +61,6 @@ CREATE POLICY delete_pengguna_policy ON pengguna
     USING (
         (SELECT role FROM pengguna WHERE id = auth.uid()) = 'superadmin'
     );
-
--- Users can view their own profile
-CREATE POLICY select_pengguna_own_policy ON pengguna
-    FOR SELECT
-    USING (id = auth.uid());
 
 -- =============================================================================
 -- GURU Policies
@@ -242,7 +235,7 @@ CREATE POLICY update_nilai_guru_policy ON nilai
             OR (
                 (SELECT role FROM pengguna WHERE id = auth.uid()) = 'guru'
                 AND mata_pelajaran_id IN (
-                    SELECT pmr.mata_papaian_id 
+                    SELECT pmr.mata_pelajaran_id 
                     FROM pembagian_mengajar_real pmr
                     JOIN guru g ON pmr.guru_id = g.id
                     WHERE g.pengguna_id = auth.uid() 
@@ -272,7 +265,7 @@ CREATE POLICY select_kehadiran_policy ON kehadiran
 CREATE POLICY manage_kehadiran_policy ON kehadiran
     FOR ALL
     USING (
-        (SELECT role FROM pengguna WHERE id = auth.uid()) IN ('superadmin', 'admin', 'urus')
+        (SELECT role FROM pengguna WHERE id = auth.uid()) IN ('superadmin', 'admin', 'urusan')
     );
 
 -- =============================================================================

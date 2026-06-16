@@ -15,10 +15,29 @@ export async function updateSession(request: NextRequest) {
         },
     });
 
-    // Only run for protected routes
-    const isProtectedRoute = request.nextUrl.pathname.startsWith('/(protected)');
-    const isAuthRoute = request.nextUrl.pathname.startsWith('/(auth)');
+    // Support both literal route group paths and standard clean paths
+    const isAuthRoute = 
+        request.nextUrl.pathname.startsWith('/(auth)') || 
+        request.nextUrl.pathname.startsWith('/login') || 
+        request.nextUrl.pathname.startsWith('/logout');
+        
     const isMaintenanceRoute = request.nextUrl.pathname.startsWith('/maintenance');
+    
+    const isStaticAsset = 
+        request.nextUrl.pathname.startsWith('/_next') || 
+        request.nextUrl.pathname.startsWith('/static') || 
+        request.nextUrl.pathname.includes('.') || 
+        request.nextUrl.pathname === '/favicon.ico';
+        
+    // Protected routes are anything that's not auth, maintenance, static, or root
+    // Routes like /dashboard, /master/*, /nilai/* are protected
+    const isProtectedRoute = 
+        request.nextUrl.pathname.startsWith('/dashboard') || 
+        request.nextUrl.pathname.startsWith('/master') || 
+        request.nextUrl.pathname.startsWith('/nilai') || 
+        request.nextUrl.pathname.startsWith('/rapor') || 
+        request.nextUrl.pathname.startsWith('/settings') || 
+        (!isAuthRoute && !isMaintenanceRoute && !isStaticAsset && !request.nextUrl.pathname.startsWith('/api') && request.nextUrl.pathname !== '/' && request.nextUrl.pathname !== '');
 
     if (!isProtectedRoute && !isAuthRoute) {
         return response;
@@ -74,7 +93,7 @@ export async function updateSession(request: NextRequest) {
     let user = null;
     if (process.env.MOCK_AUTH === 'true') {
         user = {
-            id: 'mock-user-id',
+            id: '00000000-0000-0000-0000-000000000000',
             aud: 'authenticated',
             role: 'authenticated',
             email: 'admin@example.com',
@@ -93,13 +112,13 @@ export async function updateSession(request: NextRequest) {
 
     // Auth routes: redirect to dashboard if already logged in
     if (isAuthRoute && user) {
-        return NextResponse.redirect(new URL('/(protected)/dashboard', request.url));
+        return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
     // Protected routes: redirect to login if not authenticated
     if (isProtectedRoute && !user && !isMaintenanceRoute) {
         const url = request.nextUrl.clone();
-        url.pathname = '/(auth)/login';
+        url.pathname = '/login';
         return NextResponse.redirect(url);
     }
 

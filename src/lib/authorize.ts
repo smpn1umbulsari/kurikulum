@@ -27,11 +27,11 @@ export async function authorize(
     // Support MOCK_AUTH for development/testing
     if (process.env.MOCK_AUTH === 'true') {
         const mockUser = {
-            id: 'mock-user-id',
+            id: '00000000-0000-0000-0000-000000000000',
             email: 'admin@example.com',
         };
         const mockPengguna = {
-            id: 'mock-user-id',
+            id: '00000000-0000-0000-0000-000000000000',
             username: 'admin',
             nama: 'Administrator',
             role: 'superadmin',

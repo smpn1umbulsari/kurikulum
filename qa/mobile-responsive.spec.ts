@@ -23,7 +23,7 @@ async function login(page: Page, user = TEST_USER) {
                 expires_in: 3600,
                 refresh_token: 'mock-refresh-token',
                 user: {
-                    id: 'mock-user-id',
+                    id: '00000000-0000-0000-0000-000000000000',
                     aud: 'authenticated',
                     role: 'authenticated',
                     email: user.email,
@@ -72,7 +72,7 @@ async function login(page: Page, user = TEST_USER) {
     await page.evaluate((email) => {
         localStorage.setItem('supabase-auth-token', JSON.stringify({
             access_token: 'mock-jwt-token',
-            user: { id: 'mock-user-id', email, role: 'superadmin' }
+            user: { id: '00000000-0000-0000-0000-000000000000', email, role: 'superadmin' }
         }));
     }, user.email);
 

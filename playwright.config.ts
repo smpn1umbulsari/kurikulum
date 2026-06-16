@@ -2,13 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
     testDir: './qa',
-    fullyParallel: true,
+    fullyParallel: false,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,
-    workers: process.env.CI ? 1 : undefined,
+    workers: 1,
     reporter: 'html',
     use: {
-        baseURL: process.env.TEST_BASE_URL || 'http://localhost:3000',
+        baseURL: 'http://localhost:3000',
         trace: 'on-first-retry',
     },
     projects: [
@@ -17,12 +17,4 @@ export default defineConfig({
             use: { ...devices['Desktop Chrome'] },
         },
     ],
-    /*
-    webServer: {
-        command: 'npm run dev',
-        url: 'http://localhost:3000',
-        reuseExistingServer: true,
-        timeout: 120000,
-    },
-    */
 });

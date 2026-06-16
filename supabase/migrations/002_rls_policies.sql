@@ -37,13 +37,25 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 -- ============================================================================
 ALTER TABLE pengguna ENABLE ROW LEVEL SECURITY;
 
--- Admin/superadmin: full access
-CREATE POLICY "admin_full_access_pengguna" ON pengguna
-    FOR ALL USING (public.is_admin_or_superadmin());
+-- Allow SELECT for authenticated users to prevent infinite recursion
+CREATE POLICY "users_select_pengguna" ON pengguna
+    FOR SELECT USING (auth.uid() IS NOT NULL);
 
--- Others: read own row only
-CREATE POLICY "users_read_own_pengguna" ON pengguna
-    FOR SELECT USING (id = auth.uid());
+-- Admin/superadmin: write access (split to prevent recursion on SELECT)
+CREATE POLICY "admin_insert_pengguna" ON pengguna
+    FOR INSERT WITH CHECK (
+        (SELECT role FROM pengguna WHERE id = auth.uid()) IN ('superadmin', 'admin')
+    );
+
+CREATE POLICY "admin_update_pengguna" ON pengguna
+    FOR UPDATE USING (
+        (SELECT role FROM pengguna WHERE id = auth.uid()) IN ('superadmin', 'admin')
+    );
+
+CREATE POLICY "admin_delete_pengguna" ON pengguna
+    FOR DELETE USING (
+        (SELECT role FROM pengguna WHERE id = auth.uid()) IN ('superadmin', 'admin')
+    );
 
 
 -- ============================================================================

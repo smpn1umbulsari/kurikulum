@@ -473,8 +473,8 @@
 - [ ] `4.7.16` Mode TTD digital: sisipkan gambar TTD
 - [ ] `4.7.17` Mode TTD basah: ruang kosong untuk tanda tangan manual
 - [ ] `4.7.18` Penamaan file: RAPOR*[Nama]*[Kelas]\_[Semester].pdf
-- [ ] `4.7.19` Setup Supabase Storage bucket (template-rapor)
-- [ ] `4.7.20` Upload template rapor sekolah
+- [x] `4.7.19` Setup Supabase Storage bucket (template-rapor)
+- [x] `4.7.20` Upload template rapor sekolah
 - [ ] `4.7.21` Generate PDF sesuai template
 - [ ] `4.7.22` Fallback ke layout default jika template belum ada
 - [ ] `4.7.23` Preview rapor sebelum ekspor

@@ -9,19 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Pencil, Trash2, Search, Filter, Upload } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Filter, Upload, Award, RotateCcw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-
-interface Siswa {
-    id: string;
-    nis: string;
-    nisn: string | null;
-    nipd: string | null;
-    nama: string;
-    jenis_kelamin: 'L' | 'P';
-    status: 'aktif' | 'nonaktif' | 'alumni';
-    created_at: string;
-}
+import { AlumniDialog } from '@/components/data-master/alumni-dialog';
+import { useAlumni } from '@/hooks/useAlumni';
+import { SiswaWithRelations, status_siswa_enum } from '@/types/database';
+import { cn } from '@/lib/utils';
 
 const genderOptions = [
     { value: 'L', label: 'Laki-laki' },
@@ -39,20 +32,24 @@ const statusOptions = [
  * 
  * Halaman CRUD untuk mengelola data siswa.
  * Accessible oleh superadmin, admin, dan urusan.
+ * Mendukung fitur alumni dengan Award button.
  */
 export default function SiswaPage() {
     const { profile } = useAuth();
     const { toast } = useToast();
     const supabase = createClient();
+    const { makeAlumni, revertAlumni, isProcessing } = useAlumni();
 
-    const [data, setData] = useState<Siswa[]>([]);
-    const [filteredData, setFilteredData] = useState<Siswa[]>([]);
+    const [data, setData] = useState<SiswaWithRelations[]>([]);
+    const [filteredData, setFilteredData] = useState<SiswaWithRelations[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterGender, setFilterGender] = useState<string>('all');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState<Siswa | null>(null);
+    const [alumniDialogOpen, setAlumniDialogOpen] = useState(false);
+    const [selectedSiswa, setSelectedSiswa] = useState<SiswaWithRelations | null>(null);
+    const [editingItem, setEditingItem] = useState<SiswaWithRelations | null>(null);
     const [saving, setSaving] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -60,14 +57,15 @@ export default function SiswaPage() {
         nisn: '',
         nipd: '',
         nama: '',
+        jenjang: '' as string | null,
         jenis_kelamin: 'L' as 'L' | 'P',
-        status: 'aktif' as 'aktif' | 'nonaktif' | 'alumni',
+        status: 'aktif' as status_siswa_enum,
     });
 
     // Check permission
     const canManage = profile?.role === 'superadmin' || profile?.role === 'admin' || profile?.role === 'urusan';
 
-    // Fetch data
+    // Fetch data with relations
     useEffect(() => {
         fetchData();
     }, []);
@@ -91,7 +89,7 @@ export default function SiswaPage() {
         }
 
         if (filterStatus !== 'all') {
-            result = result.filter((item) => item.status === filterStatus);
+            result = result.filter((item) => item.status_siswa === filterStatus);
         }
 
         setFilteredData(result);
@@ -99,13 +97,42 @@ export default function SiswaPage() {
 
     async function fetchData() {
         try {
+            // Fetch active semester first
+            const { data: activeSemester } = await supabase
+                .from('semester')
+                .select('id')
+                .eq('status', 'aktif')
+                .maybeSingle();
+
             const { data: result, error } = await supabase
                 .from('siswa')
-                .select('*')
+                .select(`
+                    *,
+                    siswa_kelas(
+                        semester_id,
+                        kelas_dapo(id, nama),
+                        kelas_real(id, nama)
+                    )
+                `)
                 .order('nama');
 
             if (error) throw error;
-            setData(result || []);
+            // Transform data to match SiswaWithRelations
+            const transformed = (result || []).map((item: Record<string, any>) => {
+                const activeAbsence = activeSemester
+                    ? item.siswa_kelas?.find((sk: any) => sk.semester_id === activeSemester.id)
+                    : item.siswa_kelas?.[0];
+
+                return {
+                    ...item,
+                    status_siswa: (item.status as status_siswa_enum) || 'aktif',
+                    tahun_lulus: (item.tahun_lulus as number | null) || null,
+                    jenjang: item.jenjang as number | null,
+                    kelas_dapo: activeAbsence?.kelas_dapo || null,
+                    kelas_real: activeAbsence?.kelas_real || null,
+                };
+            }) as SiswaWithRelations[];
+            setData(transformed);
         } catch (error) {
             console.error('Error fetching data:', error);
             toast({
@@ -118,7 +145,7 @@ export default function SiswaPage() {
         }
     }
 
-    function openDialog(item?: Siswa) {
+    function openDialog(item?: SiswaWithRelations) {
         if (item) {
             setEditingItem(item);
             setFormData({
@@ -126,8 +153,9 @@ export default function SiswaPage() {
                 nisn: item.nisn || '',
                 nipd: item.nipd || '',
                 nama: item.nama,
+                jenjang: item.jenjang?.toString() || '',
                 jenis_kelamin: item.jenis_kelamin,
-                status: item.status,
+                status: item.status_siswa,
             });
         } else {
             setEditingItem(null);
@@ -136,6 +164,7 @@ export default function SiswaPage() {
                 nisn: '',
                 nipd: '',
                 nama: '',
+                jenjang: '',
                 jenis_kelamin: 'L',
                 status: 'aktif',
             });
@@ -143,12 +172,47 @@ export default function SiswaPage() {
         setDialogOpen(true);
     }
 
+    // Open alumni dialog
+    function openAlumniDialog(item: SiswaWithRelations) {
+        setSelectedSiswa(item);
+        setAlumniDialogOpen(true);
+    }
+
+    // Handle make alumni
+    async function handleMakeAlumni(tahunLulus: number | undefined) {
+        if (!selectedSiswa) return;
+        
+        const success = await makeAlumni({
+            siswa_id: selectedSiswa.id,
+            tahun_lulus: tahunLulus,
+        });
+        
+        if (success) {
+            setAlumniDialogOpen(false);
+            setSelectedSiswa(null);
+            fetchData();
+        }
+    }
+
+    // Handle revert alumni
+    async function handleRevertAlumni() {
+        if (!selectedSiswa) return;
+        
+        const success = await revertAlumni(selectedSiswa.id);
+        
+        if (success) {
+            setAlumniDialogOpen(false);
+            setSelectedSiswa(null);
+            fetchData();
+        }
+    }
+
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setSaving(true);
 
         try {
-            const payload = {
+            const payload: Record<string, unknown> = {
                 nis: formData.nis,
                 nisn: formData.nisn || null,
                 nipd: formData.nipd || null,
@@ -156,6 +220,10 @@ export default function SiswaPage() {
                 jenis_kelamin: formData.jenis_kelamin,
                 status: formData.status,
             };
+
+            if (formData.jenjang) {
+                payload.jenjang = parseInt(formData.jenjang);
+            }
 
             if (editingItem) {
                 const { error } = await supabase
@@ -186,7 +254,7 @@ export default function SiswaPage() {
         }
     }
 
-    async function handleDelete(item: Siswa) {
+    async function handleDelete(item: SiswaWithRelations) {
         if (!confirm(`Hapus siswa "${item.nama}"?`)) return;
 
         try {
@@ -216,9 +284,11 @@ export default function SiswaPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline">
-                        <Upload className="mr-2 h-4 w-4" />
-                        Import Excel
+                    <Button variant="outline" asChild>
+                        <a href="/master/siswa/import">
+                            <Upload className="mr-2 h-4 w-4" />
+                            Import Excel
+                        </a>
                     </Button>
                     {canManage && (
                         <Button onClick={() => openDialog()}>
@@ -244,6 +314,7 @@ export default function SiswaPage() {
                         </div>
                         <Select value={filterGender} onValueChange={setFilterGender}>
                             <SelectTrigger className="w-[150px]">
+                                <Filter className="mr-2 h-4 w-4" />
                                 <SelectValue placeholder="Filter gender" />
                             </SelectTrigger>
                             <SelectContent>
@@ -278,6 +349,11 @@ export default function SiswaPage() {
                     <CardTitle>Daftar Siswa</CardTitle>
                     <CardDescription>
                         {filteredData.length} dari {data.length} siswa
+                        {filterStatus === 'alumni' && (
+                            <span className="ml-2 text-amber-600">
+                                (Menampilkan alumni)
+                            </span>
+                        )}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -295,14 +371,23 @@ export default function SiswaPage() {
                                         <th className="pb-3 font-medium">Nama</th>
                                         <th className="pb-3 font-medium">JK</th>
                                         <th className="pb-3 font-medium">NISN</th>
-                                        <th className="pb-3 font-medium">NIPD</th>
+                                        <th className="pb-3 font-medium hidden lg:table-cell">Jenjang</th>
+                                        <th className="pb-3 font-medium hidden md:table-cell">Kelas Dapo</th>
+                                        <th className="pb-3 font-medium hidden md:table-cell">Kelas Real</th>
                                         <th className="pb-3 font-medium">Status</th>
+                                        <th className="pb-3 font-medium hidden lg:table-cell">Tahun Lulus</th>
                                         {canManage && <th className="pb-3 font-medium">Aksi</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filteredData.map((item, index) => (
-                                        <tr key={item.id} className="border-b">
+                                        <tr 
+                                            key={item.id} 
+                                            className={cn(
+                                                'border-b transition-colors',
+                                                item.status_siswa === 'alumni' && 'bg-amber-50/50'
+                                            )}
+                                        >
                                             <td className="py-3">{index + 1}</td>
                                             <td className="py-3 font-mono text-sm">{item.nis}</td>
                                             <td className="py-3 font-medium">{item.nama}</td>
@@ -312,26 +397,60 @@ export default function SiswaPage() {
                                                 </span>
                                             </td>
                                             <td className="py-3 font-mono text-sm">{item.nisn || '-'}</td>
-                                            <td className="py-3 font-mono text-sm">{item.nipd || '-'}</td>
+                                            <td className="py-3 hidden lg:table-cell">{item.jenjang || '-'}</td>
+                                            <td className="py-3 hidden md:table-cell text-sm">
+                                                {item.kelas_dapo?.nama || '-'}
+                                            </td>
+                                            <td className="py-3 hidden md:table-cell text-sm">
+                                                {item.kelas_real?.nama || '-'}
+                                            </td>
                                             <td className="py-3">
                                                 <span
-                                                    className={`rounded-full px-2 py-1 text-xs font-medium ${item.status === 'aktif'
+                                                    className={cn(
+                                                        'rounded-full px-2 py-1 text-xs font-medium',
+                                                        item.status_siswa === 'aktif'
                                                             ? 'bg-green-100 text-green-800'
-                                                            : item.status === 'alumni'
-                                                                ? 'bg-blue-100 text-blue-800'
-                                                                : 'bg-gray-100 text-gray-800'
-                                                        }`}
+                                                            : item.status_siswa === 'alumni'
+                                                            ? 'bg-amber-100 text-amber-800'
+                                                            : 'bg-gray-100 text-gray-800'
+                                                    )}
                                                 >
-                                                    {item.status}
+                                                    {item.status_siswa}
                                                 </span>
+                                            </td>
+                                            <td className="py-3 hidden lg:table-cell font-medium">
+                                                {item.tahun_lulus || '-'}
                                             </td>
                                             {canManage && (
                                                 <td className="py-3">
                                                     <div className="flex gap-1">
+                                                        {/* Alumni Button */}
+                                                        {item.status_siswa === 'alumni' ? (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => openAlumniDialog(item)}
+                                                                className="h-8 w-8 text-amber-600 hover:text-amber-700"
+                                                                title="Batalkan Alumni"
+                                                            >
+                                                                <RotateCcw className="h-4 w-4" />
+                                                            </Button>
+                                                        ) : (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => openAlumniDialog(item)}
+                                                                className="h-8 w-8 text-amber-600 hover:text-amber-700"
+                                                                title="Jadikan Alumni"
+                                                            >
+                                                                <Award className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
                                                             onClick={() => openDialog(item)}
+                                                            className="h-8 w-8"
                                                         >
                                                             <Pencil className="h-4 w-4" />
                                                         </Button>
@@ -339,7 +458,7 @@ export default function SiswaPage() {
                                                             variant="ghost"
                                                             size="icon"
                                                             onClick={() => handleDelete(item)}
-                                                            className="text-destructive hover:text-destructive"
+                                                            className="h-8 w-8 text-destructive hover:text-destructive"
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
@@ -419,6 +538,24 @@ export default function SiswaPage() {
                                     required
                                 />
                             </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="jenjang">Jenjang</Label>
+                                <Select
+                                    value={formData.jenjang || ''}
+                                    onValueChange={(value) =>
+                                        setFormData({ ...formData, jenjang: value || null })
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Pilih jenjang" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="7">Kelas 7</SelectItem>
+                                        <SelectItem value="8">Kelas 8</SelectItem>
+                                        <SelectItem value="9">Kelas 9</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="grid gap-2">
                                     <Label htmlFor="jenis_kelamin">Jenis Kelamin</Label>
@@ -427,7 +564,7 @@ export default function SiswaPage() {
                                         onValueChange={(value) =>
                                             setFormData({
                                                 ...formData,
-                                                jenis_kelamin: value as typeof formData.jenis_kelamin,
+                                                jenis_kelamin: value as 'L' | 'P',
                                             })
                                         }
                                     >
@@ -450,7 +587,7 @@ export default function SiswaPage() {
                                         onValueChange={(value) =>
                                             setFormData({
                                                 ...formData,
-                                                status: value as typeof formData.status,
+                                                status: value as status_siswa_enum,
                                             })
                                         }
                                     >
@@ -484,6 +621,16 @@ export default function SiswaPage() {
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* Alumni Dialog */}
+            <AlumniDialog
+                open={alumniDialogOpen}
+                onOpenChange={setAlumniDialogOpen}
+                siswa={selectedSiswa}
+                onConfirm={handleMakeAlumni}
+                onRevert={selectedSiswa?.status_siswa === 'alumni' ? handleRevertAlumni : undefined}
+                isProcessing={isProcessing}
+            />
         </div>
     );
 }

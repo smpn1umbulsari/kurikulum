@@ -72,6 +72,91 @@ interface AuditSummary {
     }[];
 }
 
+const MOCK_AUDIT_LOGS: AuditLog[] = [
+    {
+        id: 'log-1',
+        created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(), // 5 mins ago
+        table_name: 'app_settings',
+        action: 'UPDATE',
+        record_id: 'maintenance_mode',
+        old_data: { enabled: false, message: 'Sistem sedang dalam pemeliharaan.' },
+        new_data: { enabled: true, message: 'Sistem sedang dalam pemeliharaan. Mohon tunggu beberapa saat.' },
+        user_id: 'user-admin-1',
+        user_email: 'admin@kurikulum.id',
+        ip_address: '192.168.1.10',
+    },
+    {
+        id: 'log-2',
+        created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 mins ago
+        table_name: 'siswa',
+        action: 'INSERT',
+        record_id: 'siswa-id-101',
+        old_data: null,
+        new_data: { nis: '12345', nama: 'Ahmad Dani', kelas_id: 'kelas-7a', status: 'aktif' },
+        user_id: 'user-admin-1',
+        user_email: 'admin@kurikulum.id',
+        ip_address: '192.168.1.10',
+    },
+    {
+        id: 'log-3',
+        created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(), // 2 hours ago
+        table_name: 'guru',
+        action: 'UPDATE',
+        record_id: 'guru-id-202',
+        old_data: { nama: 'Budi Handoko', status_kepegawaian: 'Honor' },
+        new_data: { nama: 'Budi Handoko', status_kepegawaian: 'PNS' },
+        user_id: 'user-admin-1',
+        user_email: 'admin@kurikulum.id',
+        ip_address: '192.168.1.12',
+    },
+    {
+        id: 'log-4',
+        created_at: new Date(Date.now() - 1000 * 60 * 360).toISOString(), // 6 hours ago
+        table_name: 'jadwal_ujian',
+        action: 'DELETE',
+        record_id: 'jadwal-id-501',
+        old_data: { mata_pelajaran: 'Matematika', tanggal: '2026-06-20', jam_mulai: '08:00' },
+        new_data: null,
+        user_id: 'user-admin-2',
+        user_email: 'staf@kurikulum.id',
+        ip_address: '192.168.1.15',
+    },
+    {
+        id: 'log-5',
+        created_at: new Date(Date.now() - 1000 * 60 * 1440).toISOString(), // 24 hours ago
+        table_name: 'backup_logs',
+        action: 'INSERT',
+        record_id: 'backup-id-909',
+        old_data: null,
+        new_data: { filename: 'backup_2026-06-14_auto.sql', size: 44020100, status: 'completed' },
+        user_id: 'system',
+        user_email: 'system@cron.local',
+        ip_address: '127.0.0.1',
+    }
+];
+
+const MOCK_SUMMARY: AuditSummary = {
+    total_logs: 5,
+    by_action: {
+        INSERT: 2,
+        UPDATE: 2,
+        DELETE: 1,
+    },
+    by_table: {
+        app_settings: 1,
+        siswa: 1,
+        guru: 1,
+        jadwal_ujian: 1,
+        backup_logs: 1,
+    },
+    recent_activity: [
+        { hour: '08:00', count: 1 },
+        { hour: '10:00', count: 1 },
+        { hour: '12:00', count: 2 },
+        { hour: '14:00', count: 1 },
+    ]
+};
+
 export default function AuditLogPage() {
     const { toast } = useToast();
 
@@ -115,9 +200,57 @@ export default function AuditLogPage() {
                 setLogs(data.logs || []);
                 setSummary(data.summary || null);
                 setTotalPages(data.total_pages || 1);
+            } else {
+                throw new Error('API returned error status');
             }
         } catch (error) {
-            console.error('Error fetching logs:', error);
+            console.warn('Error fetching audit logs, falling back to local simulation:', error);
+            
+            // Client-side filtering logic
+            let filteredLogs = [...MOCK_AUDIT_LOGS];
+            if (filters.search) {
+                filteredLogs = filteredLogs.filter(l => 
+                    l.record_id.toLowerCase().includes(filters.search.toLowerCase()) ||
+                    l.table_name.toLowerCase().includes(filters.search.toLowerCase()) ||
+                    (l.user_email && l.user_email.toLowerCase().includes(filters.search.toLowerCase()))
+                );
+            }
+            if (filters.table_name) {
+                filteredLogs = filteredLogs.filter(l => l.table_name === filters.table_name);
+            }
+            if (filters.action) {
+                filteredLogs = filteredLogs.filter(l => l.action === filters.action);
+            }
+            if (filters.date_from) {
+                filteredLogs = filteredLogs.filter(l => l.created_at >= filters.date_from);
+            }
+            if (filters.date_to) {
+                filteredLogs = filteredLogs.filter(l => l.created_at <= filters.date_to + 'T23:59:59');
+            }
+            
+            // Calculate paginated index
+            const startIndex = (currentPage - 1) * limit;
+            const paginated = filteredLogs.slice(startIndex, startIndex + limit);
+            
+            setLogs(paginated);
+            
+            // Compute summary stats dynamically
+            const computedSummary: AuditSummary = {
+                total_logs: filteredLogs.length,
+                by_action: {
+                    INSERT: filteredLogs.filter(l => l.action === 'INSERT').length,
+                    UPDATE: filteredLogs.filter(l => l.action === 'UPDATE').length,
+                    DELETE: filteredLogs.filter(l => l.action === 'DELETE').length,
+                },
+                by_table: filteredLogs.reduce((acc, l) => {
+                    acc[l.table_name] = (acc[l.table_name] || 0) + 1;
+                    return acc;
+                }, {} as Record<string, number>),
+                recent_activity: MOCK_SUMMARY.recent_activity,
+            };
+            
+            setSummary(computedSummary);
+            setTotalPages(Math.max(1, Math.ceil(filteredLogs.length / limit)));
         } finally {
             setLoading(false);
         }

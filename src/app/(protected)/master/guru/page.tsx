@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/providers/session-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,19 +9,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Pencil, Trash2, Search, Filter } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Filter, GripVertical } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-
-interface Guru {
-    id: string;
-    kode_guru: string;
-    urutan: number | null;
-    nama: string;
-    status_pegawai: 'PNS' | 'PPPK' | 'PPPK PW' | 'GTT';
-    nip: string;
-    status: 'aktif' | 'nonaktif';
-    created_at: string;
-}
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { SortableGuruRow, GuruItem } from '@/components/data-master/sortable-guru-row';
+import { useGuruReorder } from '@/hooks/useGuruReorder';
 
 const statusPegawaiOptions = [
     { value: 'PNS', label: 'PNS' },
@@ -40,20 +45,23 @@ const statusOptions = [
  * 
  * Halaman CRUD untuk mengelola data guru.
  * Accessible oleh superadmin dan admin.
+ * Mendukung Drag & Drop reordering (Desktop) dan Tombol ▲▼ (Mobile)
  */
 export default function GuruPage() {
     const { profile } = useAuth();
     const { toast } = useToast();
     const supabase = createClient();
 
-    const [data, setData] = useState<Guru[]>([]);
-    const [filteredData, setFilteredData] = useState<Guru[]>([]);
+    const [data, setData] = useState<GuruItem[]>([]);
+    const [orderedData, setOrderedData] = useState<GuruItem[]>([]);
+    const [filteredData, setFilteredData] = useState<GuruItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('all');
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState<Guru | null>(null);
+    const [editingItem, setEditingItem] = useState<GuruItem | null>(null);
     const [saving, setSaving] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
 
     const [formData, setFormData] = useState({
         kode_guru: '',
@@ -62,6 +70,35 @@ export default function GuruPage() {
         nip: '',
         status: 'aktif' as 'aktif' | 'nonaktif',
     });
+
+    // Reorder hook
+    const { isReordering, saveOrder, moveUp, moveDown, handleDragEnd } = useGuruReorder({
+        onReorderComplete: () => {
+            fetchData();
+        },
+    });
+
+    // Check for mobile
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    // DnD sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     // Check permission
     const canManage = profile?.role === 'superadmin' || profile?.role === 'admin';
@@ -73,7 +110,7 @@ export default function GuruPage() {
 
     // Filter data
     useEffect(() => {
-        let result = data;
+        let result = orderedData;
 
         if (searchTerm) {
             result = result.filter(
@@ -89,7 +126,7 @@ export default function GuruPage() {
         }
 
         setFilteredData(result);
-    }, [data, searchTerm, filterStatus]);
+    }, [orderedData, searchTerm, filterStatus]);
 
     async function fetchData() {
         try {
@@ -100,6 +137,7 @@ export default function GuruPage() {
 
             if (error) throw error;
             setData(result || []);
+            setOrderedData(result || []);
         } catch (error) {
             console.error('Error fetching data:', error);
             toast({
@@ -112,7 +150,7 @@ export default function GuruPage() {
         }
     }
 
-    function openDialog(item?: Guru) {
+    function openDialog(item?: GuruItem) {
         if (item) {
             setEditingItem(item);
             setFormData({
@@ -155,12 +193,32 @@ export default function GuruPage() {
                 if (error) throw error;
                 toast({ title: 'Berhasil', description: 'Data guru berhasil diperbarui' });
             } else {
+                // Auto-generate kode_guru if empty
+                let kode_guru = formData.kode_guru;
+                if (!kode_guru) {
+                    const { count } = await supabase
+                        .from('guru')
+                        .select('*', { count: 'exact', head: true });
+                    kode_guru = `GR-${String((count || 0) + 1).padStart(3, '0')}`;
+                }
+
+                // Get next urutan
+                const { data: lastGuru } = await supabase
+                    .from('guru')
+                    .select('urutan')
+                    .not('urutan', 'is', null)
+                    .order('urutan', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                const urutan = lastGuru?.urutan ? lastGuru.urutan + 1 : 1;
+
                 const { error } = await supabase.from('guru').insert({
-                    kode_guru: formData.kode_guru,
+                    kode_guru,
                     nama: formData.nama,
                     status_pegawai: formData.status_pegawai,
-                    nip: formData.nip,
+                    nip: formData.status_pegawai === 'GTT' ? '-' : (formData.nip || '-'),
                     status: formData.status,
+                    urutan,
                 });
 
                 if (error) throw error;
@@ -181,7 +239,7 @@ export default function GuruPage() {
         }
     }
 
-    async function handleDelete(item: Guru) {
+    async function handleDelete(item: GuruItem) {
         if (!confirm(`Hapus guru "${item.nama}"?`)) return;
 
         try {
@@ -200,6 +258,40 @@ export default function GuruPage() {
         }
     }
 
+    // Handle drag end
+    function onDragEnd(event: DragEndEvent) {
+        const { active, over } = event;
+
+        if (!over || active.id === over.id) return;
+
+        const newOrderedData = handleDragEnd({
+            items: orderedData,
+            activeId: active.id as string,
+            overId: over.id as string,
+        });
+
+        setOrderedData(newOrderedData);
+
+        // Save immediately after drag
+        saveOrder(newOrderedData);
+    }
+
+    // Handle move up/down (Mobile)
+    function handleMoveUp(item: GuruItem) {
+        const newOrderedData = moveUp(orderedData, item.id);
+        setOrderedData(newOrderedData);
+        saveOrder(newOrderedData);
+    }
+
+    function handleMoveDown(item: GuruItem) {
+        const newOrderedData = moveDown(orderedData, item.id);
+        setOrderedData(newOrderedData);
+        saveOrder(newOrderedData);
+    }
+
+    // Get item index
+    const getItemIndex = (itemId: string) => orderedData.findIndex(item => item.id === itemId);
+
     return (
         <div className="space-y-6">
             {/* Page Header */}
@@ -208,6 +300,7 @@ export default function GuruPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Data Guru</h1>
                     <p className="text-muted-foreground">
                         Kelola data guru dan tenaga pengajar
+                        {canManage && ' • Seret guru untuk mengubah urutan'}
                     </p>
                 </div>
                 {canManage && (
@@ -264,65 +357,79 @@ export default function GuruPage() {
                         <p className="text-muted-foreground">Tidak ada data yang cocok</p>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b text-left text-sm text-muted-foreground">
-                                        <th className="pb-3 font-medium">No</th>
-                                        <th className="pb-3 font-medium">Kode</th>
-                                        <th className="pb-3 font-medium">Nama</th>
-                                        <th className="pb-3 font-medium">Status Pegawai</th>
-                                        <th className="pb-3 font-medium">NIP</th>
-                                        <th className="pb-3 font-medium">Status</th>
-                                        {canManage && <th className="pb-3 font-medium">Aksi</th>}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredData.map((item, index) => (
-                                        <tr key={item.id} className="border-b">
-                                            <td className="py-3">{index + 1}</td>
-                                            <td className="py-3 font-mono text-sm">{item.kode_guru}</td>
-                                            <td className="py-3 font-medium">{item.nama}</td>
-                                            <td className="py-3">
-                                                <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium">
-                                                    {item.status_pegawai}
-                                                </span>
-                                            </td>
-                                            <td className="py-3 font-mono text-sm">{item.nip}</td>
-                                            <td className="py-3">
-                                                <span
-                                                    className={`rounded-full px-2 py-1 text-xs font-medium ${item.status === 'aktif'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-gray-100 text-gray-800'
-                                                        }`}
-                                                >
-                                                    {item.status}
-                                                </span>
-                                            </td>
-                                            {canManage && (
-                                                <td className="py-3">
-                                                    <div className="flex gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => openDialog(item)}
-                                                        >
-                                                            <Pencil className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handleDelete(item)}
-                                                            className="text-destructive hover:text-destructive"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </td>
-                                            )}
+                            {/* Desktop: DnD Context */}
+                            {!isMobile ? (
+                                <DndContext
+                                    sensors={sensors}
+                                    collisionDetection={closestCenter}
+                                    onDragEnd={onDragEnd}
+                                >
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="border-b text-left text-sm text-muted-foreground">
+                                                <th className="pb-3 font-medium w-10"></th>
+                                                <th className="pb-3 font-medium">No</th>
+                                                <th className="pb-3 font-medium">Kode</th>
+                                                <th className="pb-3 font-medium">Nama</th>
+                                                <th className="pb-3 font-medium">Status Pegawai</th>
+                                                <th className="pb-3 font-medium">NIP</th>
+                                                <th className="pb-3 font-medium">Status</th>
+                                                {canManage && <th className="pb-3 font-medium">Aksi</th>}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <SortableContext
+                                                items={filteredData.map(item => item.id)}
+                                                strategy={verticalListSortingStrategy}
+                                            >
+                                                {filteredData.map((item, index) => (
+                                                    <SortableGuruRow
+                                                        key={item.id}
+                                                        item={item}
+                                                        index={index}
+                                                        canManage={canManage}
+                                                        onEdit={openDialog}
+                                                        onDelete={handleDelete}
+                                                        onMoveUp={handleMoveUp}
+                                                        onMoveDown={handleMoveDown}
+                                                        isFirst={index === 0}
+                                                        isLast={index === filteredData.length - 1}
+                                                    />
+                                                ))}
+                                            </SortableContext>
+                                        </tbody>
+                                    </table>
+                                </DndContext>
+                            ) : (
+                                /* Mobile: Simple table with ▲▼ buttons */
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b text-left text-sm text-muted-foreground">
+                                            <th className="pb-3 font-medium">No</th>
+                                            <th className="pb-3 font-medium">Nama</th>
+                                            <th className="pb-3 font-medium">Status</th>
+                                            {canManage && <th className="pb-3 font-medium">Aksi</th>}
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {filteredData.map((item, index) => (
+                                            <SortableGuruRow
+                                                key={item.id}
+                                                item={item}
+                                                index={index}
+                                                canManage={canManage}
+                                                onEdit={openDialog}
+                                                onDelete={handleDelete}
+                                                onMoveUp={handleMoveUp}
+                                                onMoveDown={handleMoveDown}
+                                                isFirst={index === 0}
+                                                isLast={index === filteredData.length - 1}
+                                                isMobile={true}
+                                            />
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
                         </div>
                     )}
                 </CardContent>
@@ -345,7 +452,7 @@ export default function GuruPage() {
 
                         <div className="grid gap-4 py-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="kode_guru">Kode Guru</Label>
+                                <Label htmlFor="kode_guru">Kode Guru (Kosongkan untuk otomatis)</Label>
                                 <Input
                                     id="kode_guru"
                                     placeholder="GR-001"
@@ -353,7 +460,6 @@ export default function GuruPage() {
                                     onChange={(e) =>
                                         setFormData({ ...formData, kode_guru: e.target.value })
                                     }
-                                    required
                                 />
                             </div>
                             <div className="grid gap-2">
