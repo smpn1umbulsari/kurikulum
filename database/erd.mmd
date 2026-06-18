@@ -1,6 +1,10 @@
 # Entity Relationship Diagram (ERD): Guru Spenturi v2
 
-File ini berisi visualisasi hubungan entitas database menggunakan format Mermaid. 
+> **Versi**: 2.2
+> **Tanggal Update**: 17 Juni 2026
+> **Author**: AI Database Architect
+
+File ini berisi visualisasi hubungan entitas database menggunakan format Mermaid.
 
 ```mermaid
 erDiagram
@@ -23,8 +27,21 @@ erDiagram
         uuid id PK
         uuid pengguna_id FK
         uuid semester_id FK
-        enum jenis
         uuid kelas_real_id FK
+        enum jenis_tugas
+        decimal jam_tugas
+        text keterangan
+        boolean is_active
+        uuid created_by FK
+    }
+
+    KATEGORI_TUGAS {
+        uuid id PK
+        varchar nama
+        text deskripsi
+        decimal jam_default
+        boolean is_wali_kelas
+        boolean is_koordinator
     }
 
     %% ============================================================
@@ -61,6 +78,7 @@ erDiagram
         uuid id PK
         text nis
         text nisn
+        text nipd
         text nama
         enum jenis_kelamin
         enum status
@@ -80,6 +98,7 @@ erDiagram
         text kode_mapel
         text nama
         text kelompok
+        text agama
         enum status
     }
 
@@ -243,8 +262,19 @@ erDiagram
         timestamptz published_at
     }
 
+    KETERSEDIAAN_PENGAWAS {
+        uuid id PK
+        uuid guru_id FK
+        uuid semester_id FK
+        varchar hari
+        time jam_mulai
+        time jam_selesai
+        boolean is_available
+        text keterangan
+    }
+
     %% ============================================================
-    %% SISTEM
+    %% SISTEM & BACKUP
     %% ============================================================
     AUDIT_LOG {
         uuid id PK
@@ -258,11 +288,28 @@ erDiagram
 
     BACKUP_LOG {
         uuid id PK
-        uuid pengguna_id FK
-        text keterangan
-        text storage_path
-        bigint ukuran_bytes
-        enum status
+        text backup_type
+        varchar file_name
+        bigint file_size
+        text status
+        text error_message
+        timestamptz started_at
+        timestamptz completed_at
+        uuid performed_by FK
+    }
+
+    RESTORE_LOG {
+        uuid id PK
+        varchar backup_file
+        text status
+        integer tables_restored
+        bigint records_restored
+        text error_message
+        timestamptz started_at
+        timestamptz completed_at
+        uuid performed_by FK
+        uuid confirmed_by FK
+        text confirmation_note
     }
 
     IMPORT_TEMPLATE_LOG {
@@ -272,6 +319,45 @@ erDiagram
         uuid mata_pelajaran_id FK
         timestamptz generated_at
         text storage_path
+    }
+
+    %% ============================================================
+    %% VALIDASI DATA
+    %% ============================================================
+    VALIDATION_RULE {
+        uuid id PK
+        varchar rule_name
+        varchar table_name
+        varchar field_name
+        text rule_type
+        jsonb rule_config
+        text error_message
+        text severity
+        boolean is_active
+    }
+
+    VALIDATION_RESULT {
+        uuid id PK
+        uuid rule_id FK
+        uuid record_id
+        uuid semester_id FK
+        text error_detail
+        boolean is_resolved
+        timestamptz resolved_at
+        uuid resolved_by FK
+    }
+
+    %% ============================================================
+    %% PENGATURAN & NOTIFIKASI
+    %% ============================================================
+    SYSTEM_SETTINGS {
+        uuid id PK
+        varchar setting_key
+        text setting_value
+        text setting_type
+        text description
+        uuid updated_by FK
+        timestamptz updated_at
     }
 
     PENGATURAN_SEKOLAH {
@@ -284,6 +370,16 @@ erDiagram
         boolean mode_pemeliharaan
     }
 
+    NOTIFICATION {
+        uuid id PK
+        uuid user_id FK
+        varchar title
+        text message
+        text type
+        boolean is_read
+        text link
+    }
+
     %% ============================================================
     %% RELASI
     %% ============================================================
@@ -291,6 +387,7 @@ erDiagram
     PENGGUNA ||--o| GURU : "memiliki akun"
     PENGGUNA ||--o| SISWA : "memiliki akun"
     PENGGUNA ||--o{ TUGAS_TAMBAHAN : "ditugaskan"
+    PENGGUNA ||--o{ NOTIFICATION : "menerima"
 
     TAHUN_PELAJARAN ||--o{ SEMESTER : "memiliki"
     SEMESTER ||--o{ TUGAS_TAMBAHAN : "berlaku pada"
@@ -304,8 +401,11 @@ erDiagram
     SEMESTER ||--o{ KEHADIRAN : "berlaku pada"
     SEMESTER ||--o{ ASESMEN : "berlaku pada"
     SEMESTER ||--o{ IMPORT_TEMPLATE_LOG : "berlaku pada"
+    SEMESTER ||--o{ KETERSEDIAAN_PENGAWAS : "berlaku pada"
+    SEMESTER ||--o{ VALIDATION_RESULT : "berlaku pada"
 
     KELAS_REAL ||--o{ TUGAS_TAMBAHAN : "diampu wali kelas"
+    KATEGORI_TUGAS ||--o{ TUGAS_TAMBAHAN : "kategori"
 
     SISWA ||--|| SISWA_KELAS : "terdaftar"
     SISWA ||--o{ NILAI : "memiliki"
@@ -323,6 +423,7 @@ erDiagram
     GURU ||--o{ PEMBAGIAN_MENGAJAR_REAL : "mengajar"
     GURU ||--o{ KEPENGAWASAN_ASSIGNMENTS : "mengawas"
     GURU ||--o{ KARTU_PENGAWAS : "memiliki"
+    GURU ||--o{ KETERSEDIAAN_PENGAWAS : "ketersediaan"
 
     MATA_PELAJARAN ||--o{ KOMPONEN_NILAI : "dikonfigurasi"
     MATA_PELAJARAN ||--o{ PEMBAGIAN_MENGAJAR_DAPO : "diajarkan"
@@ -342,4 +443,73 @@ erDiagram
 
     ASESMEN_JADWAL ||--o{ KEPENGAWASAN_ASSIGNMENTS : "dijaga pada"
     KEPENGAWASAN ||--o{ KEPENGAWASAN_ASSIGNMENTS : "terdiri dari"
+
+    VALIDATION_RULE ||--o{ VALIDATION_RESULT : "dihasilkan"
+    PENGGUNA ||--o{ VALIDATION_RESULT : "menyelesaikan"
+    SYSTEM_SETTINGS ||--o{ NOTIFICATION : "memicu"
 ```
+
+---
+
+## Daftar Tabel
+
+### Tabel Induk (Master Data)
+
+| No | Nama Tabel | Deskripsi |
+|----|------------|-----------|
+| 1 | `pengguna` | Data pengguna aplikasi |
+| 2 | `guru` | Data guru |
+| 3 | `siswa` | Data siswa |
+| 4 | `kepala_sekolah` | Data kepala sekolah |
+| 5 | `mata_pelajaran` | Daftar mata pelajaran |
+| 6 | `tahun_pelajaran` | Tahun ajaran |
+| 7 | `semester` | Semester aktif/nonaktif |
+| 8 | `kelas_dapo` | Kelas Dapodik |
+| 9 | `kelas_real` | Kelas Real |
+
+### Tabel Transaksional
+
+| No | Nama Tabel | Deskripsi |
+|----|------------|-----------|
+| 10 | `siswa_kelas` | Distribusi siswa ke kelas |
+| 11 | `tugas_tambahan` | Tugas tambahan guru |
+| 12 | `kategori_tugas` | Kategori tugas tambahan |
+| 13 | `komponen_nilai` | Bobot komponen nilai |
+| 14 | `pembagian_mengajar_dapo` | Pembagian mengajar Dapo |
+| 15 | `pembagian_mengajar_real` | Pembagian mengajar Real |
+| 16 | `nilai` | Nilai siswa |
+| 17 | `kehadiran` | Kehadiran siswa |
+
+### Tabel Asesmen
+
+| No | Nama Tabel | Deskripsi |
+|----|------------|-----------|
+| 18 | `asesmen` | Data asesmen |
+| 19 | `asesmen_jadwal` | Jadwal asesmen |
+| 20 | `asesmen_ruang` | Pengaturan ruang |
+| 21 | `asesmen_siswa_ruang` | Siswa per ruang |
+| 22 | `asesmen_nomor_peserta` | Nomor peserta |
+| 23 | `kepengawasan` | Data kepengawasan |
+| 24 | `kepengawasan_assignments` |分配 pengawas |
+| 25 | `kartu_pengawas` | Kartu pengawas |
+| 26 | `ketersediaan_pengawas` | Ketersediaan guru |
+
+### Tabel Sistem
+
+| No | Nama Tabel | Deskripsi |
+|----|------------|-----------|
+| 27 | `audit_log` | Log aktivitas |
+| 28 | `backup_log` | Log backup |
+| 29 | `restore_log` | Log restore |
+| 30 | `import_template_log` | Log template import |
+| 31 | `validation_rule` | Aturan validasi |
+| 32 | `validation_result` | Hasil validasi |
+| 33 | `system_settings` | Pengaturan sistem |
+| 34 | `pengaturan_sekolah` | Pengaturan sekolah |
+| 35 | `notification` | Notifikasi pengguna |
+
+---
+
+_Document Version: 2.2_
+_Last Updated: 17 Juni 2026_
+_Author: AI Database Architect_

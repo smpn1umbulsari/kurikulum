@@ -1,30 +1,31 @@
 -- ============================================================================
 -- DATABASE SCHEMA: GURU SPENTURI V2 (Supabase PostgreSQL)
 -- ============================================================================
+-- 
+-- Versi: 2.2
+-- Tanggal Update: 17 Juni 2026
+-- Author: AI Database Architect
+-- 
+-- Schema ini mengkonsolidasikan semua tabel dari migrations 001-013
+-- ============================================================================
 
 -- ----------------------------------------------------------------------------
 -- 1. ENUM TYPES
 -- ----------------------------------------------------------------------------
 
-CREATE TYPE role_enum            AS ENUM ('superadmin','admin','urusan','guru','siswa');
-CREATE TYPE status_enum          AS ENUM ('aktif','nonaktif');
-CREATE TYPE status_siswa_enum    AS ENUM ('aktif','nonaktif','alumni');
-CREATE TYPE status_pegawai_enum  AS ENUM ('PNS','PPPK','PPPK PW','GTT');
-CREATE TYPE mode_penilaian_enum  AS ENUM ('pts','semester');
-CREATE TYPE mode_ttd_enum        AS ENUM ('digital','basah');
-CREATE TYPE jenis_kelamin_enum   AS ENUM ('L','P');
-CREATE TYPE acuan_kelas_enum     AS ENUM ('real','dapo');
-CREATE TYPE jam_ujian_enum       AS ENUM ('Jam ke - 1','Jam ke - 2');
-CREATE TYPE status_backup_enum   AS ENUM ('sukses','gagal');
+-- Role enum untuk RBAC
+CREATE TYPE role_enum AS ENUM ('superadmin', 'admin', 'urusan', 'guru', 'siswa');
+CREATE TYPE status_enum AS ENUM ('aktif', 'nonaktif');
+CREATE TYPE status_siswa_enum AS ENUM ('aktif', 'nonaktif', 'alumni');
+CREATE TYPE status_pegawai_enum AS ENUM ('PNS', 'PPPK', 'PPPK PW', 'GTT');
+CREATE TYPE mode_penilaian_enum AS ENUM ('pts', 'semester');
+CREATE TYPE mode_ttd_enum AS ENUM ('digital', 'basah');
+CREATE TYPE jenis_kelamin_enum AS ENUM ('L', 'P');
+CREATE TYPE acuan_kelas_enum AS ENUM ('real', 'dapo');
+CREATE TYPE jam_ujian_enum AS ENUM ('Jam ke - 1', 'Jam ke - 2');
+CREATE TYPE status_backup_enum AS ENUM ('sukses', 'gagal');
 
-CREATE TYPE tugas_tambahan_enum  AS ENUM (
-  'kepala_kurikulum',
-  'koordinator_7',
-  'koordinator_8',
-  'koordinator_9',
-  'wali_kelas'
-);
-
+-- Jenis ujian Asesmen
 CREATE TYPE jenis_ujian_enum AS ENUM (
   'Asesmen Sumatif Tengah Semester',
   'Asesmen Sumatif Akhir Semester',
@@ -32,15 +33,28 @@ CREATE TYPE jenis_ujian_enum AS ENUM (
   'Asesmen Sumatif Akhir Jenjang'
 );
 
+-- Hari enum
 CREATE TYPE hari_enum AS ENUM (
-  'Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'
+  'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'
 );
 
+-- Jenis tugas tambahan
+CREATE TYPE jenis_tugas_enum AS ENUM (
+  'wali_kelas',
+  'koordinator_7',
+  'koordinator_8',
+  'koordinator_9',
+  'kepala_kurikulum',
+  'laboran',
+  'perpustakaan',
+  '辅导员'
+);
 
 -- ----------------------------------------------------------------------------
 -- 2. MASTER DATA & PERIOD TABLES (INDEPENDENT)
 -- ----------------------------------------------------------------------------
 
+-- Tabel tahun pelajaran
 CREATE TABLE tahun_pelajaran (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   nama        text NOT NULL UNIQUE,
@@ -50,7 +64,7 @@ CREATE TABLE tahun_pelajaran (
 
 -- Pengguna table (extends Supabase auth.users)
 CREATE TABLE pengguna (
-  id          uuid PRIMARY KEY, -- Will reference auth.users(id) in target environment
+  id          uuid PRIMARY KEY,
   username    text UNIQUE NOT NULL,
   nama        text NOT NULL,
   role        role_enum NOT NULL,
@@ -59,6 +73,7 @@ CREATE TABLE pengguna (
   updated_at  timestamptz DEFAULT now()
 );
 
+-- Tabel guru
 CREATE TABLE guru (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   kode_guru       text UNIQUE NOT NULL,
@@ -77,6 +92,7 @@ CREATE TABLE guru (
   )
 );
 
+-- Tabel siswa
 CREATE TABLE siswa (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   nis             text UNIQUE NOT NULL,
@@ -85,11 +101,13 @@ CREATE TABLE siswa (
   nama            text NOT NULL,
   jenis_kelamin   jenis_kelamin_enum NOT NULL,
   status          status_siswa_enum NOT NULL DEFAULT 'aktif',
+  tahun_lulus     smallint,
   pengguna_id     uuid REFERENCES pengguna(id),
   created_at      timestamptz DEFAULT now(),
   updated_at      timestamptz DEFAULT now()
 );
 
+-- Tabel kepala sekolah
 CREATE TABLE kepala_sekolah (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   nama                text NOT NULL,
@@ -102,6 +120,7 @@ CREATE TABLE kepala_sekolah (
   updated_at          timestamptz DEFAULT now()
 );
 
+-- Tabel mata pelajaran
 CREATE TABLE mata_pelajaran (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   kode_mapel  text UNIQUE NOT NULL,
@@ -117,6 +136,7 @@ CREATE TABLE mata_pelajaran (
 -- 3. SEMESTER-DEPENDENT TABLES
 -- ----------------------------------------------------------------------------
 
+-- Tabel semester
 CREATE TABLE semester (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tahun_pelajaran_id  uuid NOT NULL REFERENCES tahun_pelajaran(id),
@@ -129,6 +149,7 @@ CREATE TABLE semester (
   UNIQUE (tahun_pelajaran_id, nama)
 );
 
+-- Tabel kelas Dapodik
 CREATE TABLE kelas_dapo (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   semester_id uuid NOT NULL REFERENCES semester(id),
@@ -140,6 +161,7 @@ CREATE TABLE kelas_dapo (
   UNIQUE (semester_id, nama)
 );
 
+-- Tabel kelas Real
 CREATE TABLE kelas_real (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   semester_id uuid NOT NULL REFERENCES semester(id),
@@ -151,6 +173,7 @@ CREATE TABLE kelas_real (
   UNIQUE (semester_id, nama)
 );
 
+-- Tabel distribusi siswa ke kelas
 CREATE TABLE siswa_kelas (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   siswa_id            uuid NOT NULL REFERENCES siswa(id),
@@ -165,16 +188,25 @@ CREATE TABLE siswa_kelas (
   UNIQUE (siswa_id, semester_id)
 );
 
+-- ----------------------------------------------------------------------------
+-- 4. TUGAS TAMBAHAN TABLES (v2.2)
+-- ----------------------------------------------------------------------------
+
+-- Tabel tugas tambahan
 CREATE TABLE tugas_tambahan (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  pengguna_id   uuid NOT NULL REFERENCES pengguna(id),
-  semester_id   uuid NOT NULL REFERENCES semester(id),
-  jenis         tugas_tambahan_enum NOT NULL,
+  pengguna_id   uuid NOT NULL REFERENCES pengguna(id) ON DELETE CASCADE,
+  semester_id   uuid NOT NULL REFERENCES semester(id) ON DELETE CASCADE,
   kelas_real_id uuid REFERENCES kelas_real(id),
+  jenis         jenis_tugas_enum NOT NULL,
+  jam_tugas     decimal(4,2) DEFAULT 0,
+  keterangan    text,
+  is_active     boolean DEFAULT true,
+  created_by    uuid REFERENCES pengguna(id),
   created_at    timestamptz DEFAULT now(),
   updated_at    timestamptz DEFAULT now(),
 
-  UNIQUE (pengguna_id, semester_id, jenis),
+  UNIQUE (semester_id, pengguna_id, jenis),
 
   CONSTRAINT chk_wali_kelas_harus_ada_kelas CHECK (
     (jenis = 'wali_kelas' AND kelas_real_id IS NOT NULL) OR
@@ -182,10 +214,22 @@ CREATE TABLE tugas_tambahan (
   )
 );
 
+-- Tabel kategori tugas
+CREATE TABLE kategori_tugas (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  nama            varchar(100) NOT NULL UNIQUE,
+  deskripsi       text,
+  jam_default     decimal(4,2) DEFAULT 0,
+  is_wali_kelas   boolean DEFAULT false,
+  is_koordinator  boolean DEFAULT false,
+  created_at      timestamptz DEFAULT now()
+);
+
 -- ----------------------------------------------------------------------------
--- 4. CURRICULUM CONFIG & ASSIGNMENT TABLES
+-- 5. CURRICULUM CONFIG & ASSIGNMENT TABLES
 -- ----------------------------------------------------------------------------
 
+-- Tabel komponen nilai (bobot penilaian)
 CREATE TABLE komponen_nilai (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   semester_id         uuid NOT NULL REFERENCES semester(id),
@@ -202,6 +246,7 @@ CREATE TABLE komponen_nilai (
     CHECK (bobot_uh + bobot_pts + bobot_semester = 100)
 );
 
+-- Tabel pembagian mengajar Dapodik
 CREATE TABLE pembagian_mengajar_dapo (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   semester_id         uuid NOT NULL REFERENCES semester(id),
@@ -215,6 +260,7 @@ CREATE TABLE pembagian_mengajar_dapo (
   UNIQUE (semester_id, guru_id, mata_pelajaran_id, kelas_dapo_id)
 );
 
+-- Tabel pembagian mengajar Real
 CREATE TABLE pembagian_mengajar_real (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   semester_id         uuid NOT NULL REFERENCES semester(id),
@@ -229,9 +275,10 @@ CREATE TABLE pembagian_mengajar_real (
 );
 
 -- ----------------------------------------------------------------------------
--- 5. GRADES & ATTENDANCE
+-- 6. GRADES & ATTENDANCE
 -- ----------------------------------------------------------------------------
 
+-- Tabel nilai siswa
 CREATE TABLE nilai (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   semester_id           uuid NOT NULL REFERENCES semester(id),
@@ -252,7 +299,7 @@ CREATE TABLE nilai (
   bobot_pts_pct         numeric(5,2) NOT NULL DEFAULT 30,
   bobot_semester_pct    numeric(5,2) NOT NULL DEFAULT 30,
 
-  -- RAPOR: generated column, only computed if all components are filled
+  -- RAPOR: generated column
   rapor                 numeric(5,2) GENERATED ALWAYS AS (
     CASE
       WHEN uh1 IS NOT NULL AND uh2 IS NOT NULL AND uh3 IS NOT NULL
@@ -282,6 +329,7 @@ CREATE TABLE nilai (
   )
 );
 
+-- Tabel kehadiran siswa
 CREATE TABLE kehadiran (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   semester_id   uuid NOT NULL REFERENCES semester(id),
@@ -297,9 +345,10 @@ CREATE TABLE kehadiran (
 );
 
 -- ----------------------------------------------------------------------------
--- 6. ASSESSMENT PROCESS TABLES
+-- 7. ASSESSMENT PROCESS TABLES (v2.2)
 -- ----------------------------------------------------------------------------
 
+-- Tabel asesmen
 CREATE TABLE asesmen (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   semester_id     uuid NOT NULL REFERENCES semester(id),
@@ -313,6 +362,7 @@ CREATE TABLE asesmen (
   updated_at      timestamptz DEFAULT now()
 );
 
+-- Tabel jadwal asesmen
 CREATE TABLE asesmen_jadwal (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   asesmen_id          uuid NOT NULL REFERENCES asesmen(id) ON DELETE CASCADE,
@@ -327,6 +377,7 @@ CREATE TABLE asesmen_jadwal (
   updated_at          timestamptz DEFAULT now()
 );
 
+-- Tabel pengaturan ruang asesmen
 CREATE TABLE asesmen_ruang (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   asesmen_id    uuid NOT NULL REFERENCES asesmen(id) ON DELETE CASCADE,
@@ -340,6 +391,7 @@ CREATE TABLE asesmen_ruang (
   UNIQUE (asesmen_id)
 );
 
+-- Tabel siswa per ruang ujian
 CREATE TABLE asesmen_siswa_ruang (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   asesmen_id  uuid NOT NULL REFERENCES asesmen(id) ON DELETE CASCADE,
@@ -351,6 +403,7 @@ CREATE TABLE asesmen_siswa_ruang (
   UNIQUE (asesmen_id, siswa_id)
 );
 
+-- Tabel nomor peserta asesmen
 CREATE TABLE asesmen_nomor_peserta (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   asesmen_id      uuid NOT NULL REFERENCES asesmen(id) ON DELETE CASCADE,
@@ -362,6 +415,7 @@ CREATE TABLE asesmen_nomor_peserta (
   UNIQUE (asesmen_id, siswa_id)
 );
 
+-- Tabel kepengawasan
 CREATE TABLE kepengawasan (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   asesmen_id        uuid NOT NULL REFERENCES asesmen(id) ON DELETE CASCADE,
@@ -374,6 +428,7 @@ CREATE TABLE kepengawasan (
   UNIQUE (asesmen_id)
 );
 
+-- Tabel分配 pengawas
 CREATE TABLE kepengawasan_assignments (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   kepengawasan_id   uuid NOT NULL REFERENCES kepengawasan(id) ON DELETE CASCADE,
@@ -386,6 +441,7 @@ CREATE TABLE kepengawasan_assignments (
   UNIQUE (kepengawasan_id, jadwal_id, nomor_ruang, urutan_pengawas)
 );
 
+-- Tabel kartu pengawas
 CREATE TABLE kartu_pengawas (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   asesmen_id    uuid NOT NULL REFERENCES asesmen(id) ON DELETE CASCADE,
@@ -397,10 +453,26 @@ CREATE TABLE kartu_pengawas (
   UNIQUE (asesmen_id, guru_id)
 );
 
+-- Tabel ketersediaan pengawas
+CREATE TABLE ketersediaan_pengawas (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  guru_id         uuid NOT NULL REFERENCES guru(id) ON DELETE CASCADE,
+  semester_id     uuid NOT NULL REFERENCES semester(id),
+  hari            varchar(50) NOT NULL,
+  jam_mulai       time NOT NULL,
+  jam_selesai     time NOT NULL,
+  is_available    boolean DEFAULT true,
+  keterangan      text,
+  created_at      timestamptz DEFAULT now(),
+
+  UNIQUE(guru_id, semester_id, hari, jam_mulai)
+);
+
 -- ----------------------------------------------------------------------------
--- 7. SYSTEM LOGS & SETTINGS TABLES
+-- 8. SYSTEM LOGS & SETTINGS TABLES (v2.2)
 -- ----------------------------------------------------------------------------
 
+-- Tabel audit log
 CREATE TABLE audit_log (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   pengguna_id   uuid REFERENCES pengguna(id),
@@ -412,16 +484,35 @@ CREATE TABLE audit_log (
   created_at    timestamptz DEFAULT now()
 );
 
+-- Tabel backup log
 CREATE TABLE backup_log (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  pengguna_id   uuid REFERENCES pengguna(id),
-  keterangan    text,
-  storage_path  text,
-  ukuran_bytes  bigint,
-  status        status_backup_enum NOT NULL,
-  created_at    timestamptz DEFAULT now()
+  backup_type   text NOT NULL,
+  file_name     varchar(255),
+  file_size     bigint,
+  status        text NOT NULL,
+  error_message text,
+  started_at    timestamptz DEFAULT now(),
+  completed_at  timestamptz,
+  performed_by  uuid REFERENCES pengguna(id)
 );
 
+-- Tabel restore log
+CREATE TABLE restore_log (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  backup_file       varchar(255) NOT NULL,
+  status            text NOT NULL,
+  tables_restored   integer DEFAULT 0,
+  records_restored  bigint DEFAULT 0,
+  error_message     text,
+  started_at        timestamptz DEFAULT now(),
+  completed_at      timestamptz,
+  performed_by      uuid REFERENCES pengguna(id),
+  confirmed_by      uuid REFERENCES pengguna(id),
+  confirmation_note text
+);
+
+-- Tabel import template log
 CREATE TABLE import_template_log (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   semester_id         uuid NOT NULL REFERENCES semester(id),
@@ -432,6 +523,47 @@ CREATE TABLE import_template_log (
   created_at          timestamptz DEFAULT now()
 );
 
+-- Tabel validation rules
+CREATE TABLE validation_rule (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  rule_name       varchar(100) NOT NULL,
+  table_name      varchar(100) NOT NULL,
+  field_name      varchar(100),
+  rule_type       text NOT NULL,
+  rule_config     jsonb NOT NULL,
+  error_message   text,
+  severity        text DEFAULT 'error',
+  is_active       boolean DEFAULT true,
+  created_at      timestamptz DEFAULT now(),
+
+  UNIQUE(table_name, rule_name)
+);
+
+-- Tabel validation results
+CREATE TABLE validation_result (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  rule_id         uuid NOT NULL REFERENCES validation_rule(id),
+  record_id       uuid NOT NULL,
+  semester_id     uuid REFERENCES semester(id),
+  error_detail    text,
+  is_resolved     boolean DEFAULT false,
+  resolved_at     timestamptz,
+  resolved_by     uuid REFERENCES pengguna(id),
+  created_at      timestamptz DEFAULT now()
+);
+
+-- Tabel system settings (v2.2 - replace pengaturan_sekolah)
+CREATE TABLE system_settings (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  setting_key     varchar(100) NOT NULL UNIQUE,
+  setting_value   text,
+  setting_type    text DEFAULT 'string',
+  description     text,
+  updated_by      uuid REFERENCES pengguna(id),
+  updated_at      timestamptz DEFAULT now()
+);
+
+-- Tabel pengaturan sekolah (legacy, untuk backward compatibility)
 CREATE TABLE pengaturan_sekolah (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   nama_sekolah        text,
@@ -446,49 +578,72 @@ CREATE TABLE pengaturan_sekolah (
   updated_at          timestamptz DEFAULT now()
 );
 
+-- Tabel notification
+CREATE TABLE notification (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       uuid NOT NULL REFERENCES pengguna(id) ON DELETE CASCADE,
+  title         varchar(255) NOT NULL,
+  message       text NOT NULL,
+  type          text DEFAULT 'info',
+  is_read       boolean DEFAULT false,
+  link          text,
+  created_at    timestamptz DEFAULT now()
+);
 
 -- ----------------------------------------------------------------------------
--- 8. INDEXES FOR PERFORMANCE & CONSTRAINTS
+-- 9. INDEXES FOR PERFORMANCE
 -- ----------------------------------------------------------------------------
 
--- Sg. 1
+-- Pengguna indexes
 CREATE INDEX idx_pengguna_role ON pengguna (role);
 
--- Sg. 2
-CREATE INDEX idx_tugas_tambahan_pengguna_semester ON tugas_tambahan (pengguna_id, semester_id);
-
--- Sg. 3
-CREATE UNIQUE INDEX idx_semester_satu_aktif ON semester (status) WHERE status = 'aktif';
+-- Guru indexes
 CREATE INDEX idx_guru_urutan ON guru (urutan NULLS LAST);
 CREATE INDEX idx_guru_status ON guru (status);
+
+-- Siswa indexes
 CREATE INDEX idx_siswa_status ON siswa (status);
-CREATE INDEX idx_siswa_nama   ON siswa (nama);
-CREATE UNIQUE INDEX idx_kepala_sekolah_satu_aktif ON kepala_sekolah (status) WHERE status = 'aktif';
-CREATE INDEX idx_mata_pelajaran_status ON mata_pelajaran (status);
+CREATE INDEX idx_siswa_nama ON siswa (nama);
+
+-- Tugas tambahan indexes
+CREATE INDEX idx_tugas_pengguna ON tugas_tambahan(pengguna_id);
+CREATE INDEX idx_tugas_semester ON tugas_tambahkan(semester_id);
+CREATE INDEX idx_tugas_kelas ON tugas_tambahan(kelas_real_id) WHERE kelas_real_id IS NOT NULL;
+CREATE INDEX idx_tugas_jenis ON tugas_tambahan(jenis);
+
+-- Semester indexes
+CREATE UNIQUE INDEX idx_semester_satu_aktif ON semester (status) WHERE status = 'aktif';
+
+-- Kelas indexes
 CREATE INDEX idx_kelas_dapo_semester_jenjang ON kelas_dapo (semester_id, jenjang);
 CREATE INDEX idx_kelas_real_semester_jenjang ON kelas_real (semester_id, jenjang);
 
--- Sg. 4
+-- Siswa kelas indexes
 CREATE UNIQUE INDEX idx_absen_dapo_unik ON siswa_kelas (kelas_dapo_id, nomor_absen_dapo) WHERE nomor_absen_dapo IS NOT NULL;
 CREATE UNIQUE INDEX idx_absen_real_unik ON siswa_kelas (kelas_real_id, nomor_absen_real) WHERE nomor_absen_real IS NOT NULL;
 CREATE INDEX idx_siswa_kelas_kelas_real_semester ON siswa_kelas (kelas_real_id, semester_id);
 CREATE INDEX idx_siswa_kelas_kelas_dapo ON siswa_kelas (kelas_dapo_id);
 CREATE INDEX idx_siswa_kelas_semester ON siswa_kelas (semester_id);
 
--- Sg. 5
+-- Pembagian mengajar indexes
 CREATE INDEX idx_pmd_guru_semester ON pembagian_mengajar_dapo (guru_id, semester_id);
-CREATE INDEX idx_pmd_kelas_dapo    ON pembagian_mengajar_dapo (kelas_dapo_id);
+CREATE INDEX idx_pmd_kelas_dapo ON pembagian_mengajar_dapo (kelas_dapo_id);
 CREATE INDEX idx_pmr_guru_semester ON pembagian_mengajar_real (guru_id, semester_id);
-CREATE INDEX idx_pmr_kelas_real    ON pembagian_mengajar_real (kelas_real_id);
+CREATE INDEX idx_pmr_kelas_real ON pembagian_mengajar_real (kelas_real_id);
 
--- Sg. 6
-CREATE INDEX idx_nilai_semester_siswa     ON nilai (semester_id, siswa_id);
-CREATE INDEX idx_nilai_semester_mapel     ON nilai (semester_id, mata_pelajaran_id);
+-- Mapel indexes
+CREATE INDEX idx_mata_pelajaran_status ON mata_pelajaran (status);
+
+-- Nilai indexes
+CREATE INDEX idx_nilai_semester_siswa ON nilai (semester_id, siswa_id);
+CREATE INDEX idx_nilai_semester_mapel ON nilai (semester_id, mata_pelajaran_id);
 CREATE INDEX idx_nilai_siswa_semester_mapel ON nilai (siswa_id, semester_id, mata_pelajaran_id);
-CREATE INDEX idx_nilai_terkunci           ON nilai (terkunci) WHERE terkunci = true;
+CREATE INDEX idx_nilai_terkunci ON nilai (terkunci) WHERE terkunci = true;
+
+-- Kehadiran indexes
 CREATE INDEX idx_kehadiran_semester ON kehadiran (semester_id);
 
--- Sg. 7
+-- Asesmen indexes
 CREATE INDEX idx_asesmen_semester ON asesmen (semester_id);
 CREATE INDEX idx_asesmen_jadwal_asesmen ON asesmen_jadwal (asesmen_id);
 CREATE INDEX idx_asesmen_siswa_ruang ON asesmen_siswa_ruang (asesmen_id, nomor_ruang);
@@ -497,19 +652,38 @@ CREATE INDEX idx_kepengawasan_assignments_guru ON kepengawasan_assignments (guru
 CREATE INDEX idx_kepengawasan_assignments_jadwal ON kepengawasan_assignments (jadwal_id, nomor_ruang);
 CREATE INDEX idx_kartu_pengawas_guru ON kartu_pengawas (guru_id);
 
--- Sg. 8
+-- Ketersediaan pengawas indexes
+CREATE INDEX idx_ketersediaan_guru ON ketersediaan_pengawas (guru_id);
+CREATE INDEX idx_ketersediaan_semester ON ketersediaan_pengawas (semester_id);
+
+-- Backup & restore indexes
+CREATE INDEX idx_backup_status ON backup_log (status);
+CREATE INDEX idx_backup_date ON backup_log (started_at DESC);
+CREATE INDEX idx_restore_status ON restore_log (status);
+CREATE INDEX idx_restore_date ON restore_log (started_at DESC);
+
+-- Audit log indexes
 CREATE INDEX idx_audit_log_pengguna ON audit_log (pengguna_id, created_at DESC);
-CREATE INDEX idx_audit_log_tabel    ON audit_log (tabel, created_at DESC);
-CREATE INDEX idx_audit_log_waktu    ON audit_log (created_at DESC);
+CREATE INDEX idx_audit_log_tabel ON audit_log (tabel, created_at DESC);
+CREATE INDEX idx_audit_log_waktu ON audit_log (created_at DESC);
 CREATE INDEX idx_import_template_log_lookup ON import_template_log (semester_id, kelas_real_id, mata_pelajaran_id, generated_at DESC);
+
+-- Validation indexes
+CREATE INDEX idx_validation_rule_table ON validation_rule(table_name) WHERE is_active = true;
+CREATE INDEX idx_validation_result_semester ON validation_result(semester_id) WHERE NOT is_resolved;
+
+-- System settings indexes
 CREATE UNIQUE INDEX idx_pengaturan_sekolah_singleton ON pengaturan_sekolah ((true));
 
+-- Notification indexes
+CREATE INDEX idx_notification_user ON notification(user_id, is_read);
+CREATE INDEX idx_notification_date ON notification(created_at DESC);
 
 -- ----------------------------------------------------------------------------
--- 9. TRIGGER FUNCTIONS & TRIGGERS
+-- 10. TRIGGER FUNCTIONS & TRIGGERS
 -- ----------------------------------------------------------------------------
 
--- Trigger 1: Validate Student Class Level Match (Dapo and Real must match jenjang)
+-- Trigger 1: Validate Student Class Level Match
 CREATE OR REPLACE FUNCTION validate_siswa_kelas_jenjang()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -554,7 +728,7 @@ BEFORE INSERT ON nilai
 FOR EACH ROW EXECUTE FUNCTION snapshot_bobot_nilai();
 
 
--- Trigger 3: Validate Student has both classes configured before grades or attendance are entered
+-- Trigger 3: Validate Student has both classes configured before grades
 CREATE OR REPLACE FUNCTION validate_siswa_sudah_punya_kelas()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -580,23 +754,164 @@ BEFORE INSERT ON kehadiran
 FOR EACH ROW EXECUTE FUNCTION validate_siswa_sudah_punya_kelas();
 
 
+-- Trigger 4: Updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply updated_at trigger to all tables
+CREATE TRIGGER update_tugas_tambahan_updated_at
+  BEFORE UPDATE ON tugas_tambahan
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_guru_updated_at
+  BEFORE UPDATE ON guru
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_siswa_updated_at
+  BEFORE UPDATE ON siswa
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_semester_updated_at
+  BEFORE UPDATE ON semester
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_kelas_dapo_updated_at
+  BEFORE UPDATE ON kelas_dapo
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_kelas_real_updated_at
+  BEFORE UPDATE ON kelas_real
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_siswa_kelas_updated_at
+  BEFORE UPDATE ON siswa_kelas
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_komponen_nilai_updated_at
+  BEFORE UPDATE ON komponen_nilai
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_pembagian_mengajar_dapo_updated_at
+  BEFORE UPDATE ON pembagian_mengajar_dapo
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_pembagian_mengajar_real_updated_at
+  BEFORE UPDATE ON pembagian_mengajar_real
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_nilai_updated_at
+  BEFORE UPDATE ON nilai
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_kehadiran_updated_at
+  BEFORE UPDATE ON kehadiran
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_asesmen_updated_at
+  BEFORE UPDATE ON asesmen
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_asesmen_jadwal_updated_at
+  BEFORE UPDATE ON asesmen_jadwal
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_asesmen_ruang_updated_at
+  BEFORE UPDATE ON asesmen_ruang
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_kepengawasan_updated_at
+  BEFORE UPDATE ON kepengawasan
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_kartu_pengawas_updated_at
+  BEFORE UPDATE ON kartu_pengawas
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- ----------------------------------------------------------------------------
--- 10. POLICIES & IMMUTABLE RULES
+-- 11. ROW LEVEL SECURITY (RLS)
 -- ----------------------------------------------------------------------------
+
+-- Enable RLS on all tables
+ALTER TABLE pengguna ENABLE ROW LEVEL SECURITY;
+ALTER TABLE guru ENABLE ROW LEVEL SECURITY;
+ALTER TABLE siswa ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kepala_sekolah ENABLE ROW LEVEL SECURITY;
+ALTER TABLE mata_pelajaran ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tahun_pelajaran ENABLE ROW LEVEL SECURITY;
+ALTER TABLE semester ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kelas_dapo ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kelas_real ENABLE ROW LEVEL SECURITY;
+ALTER TABLE siswa_kelas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tugas_tambahan ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kategori_tugas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE komponen_nilai ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pembagian_mengajar_dapo ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pembagian_mengajar_real ENABLE ROW LEVEL SECURITY;
+ALTER TABLE nilai ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kehadiran ENABLE ROW LEVEL SECURITY;
+ALTER TABLE asesmen ENABLE ROW LEVEL SECURITY;
+ALTER TABLE asesmen_jadwal ENABLE ROW LEVEL SECURITY;
+ALTER TABLE asesmen_ruang ENABLE ROW LEVEL SECURITY;
+ALTER TABLE asesmen_siswa_ruang ENABLE ROW LEVEL SECURITY;
+ALTER TABLE asesmen_nomor_peserta ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kepengawasan ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kepengawasan_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE kartu_pengawas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ketersediaan_pengawas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE backup_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE restore_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE import_template_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE validation_rule ENABLE ROW LEVEL SECURITY;
+ALTER TABLE validation_result ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pengaturan_sekolah ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification ENABLE ROW LEVEL SECURITY;
 
 -- Audit log is immutable
 REVOKE UPDATE, DELETE ON audit_log FROM public;
 
--- Row Level Security (RLS) is enabled on ALL tables.
--- See: supabase/migrations/002_rls_policies.sql for complete RLS policies.
---
--- Summary:
---   - pengguna: admin full, others read own row
---   - guru, siswa: admin full, authenticated read
---   - nilai: admin full, guru CRUD (non-locked), urusan read
---   - kehadiran: admin full, guru/urusan manage
---   - kepala_sekolah: admin full, authenticated read
---   - audit_log: superadmin read only, immutable (no UPDATE/DELETE)
---   - asesmen + sub-tables: admin/urusan full, guru read
---   - lookup tables (semester, kelas, mapel, etc.): admin full, authenticated read
---   - backup_log: admin only
+-- ----------------------------------------------------------------------------
+-- 12. SEED DATA - Default System Settings (v2.2)
+-- ----------------------------------------------------------------------------
+
+INSERT INTO system_settings (setting_key, setting_value, setting_type, description) VALUES
+  ('maintenance_mode', 'false', 'boolean', 'Enable/disable maintenance mode'),
+  ('school_name', 'SMP NEGERI 1 UMBULSARI', 'string', 'School name for rapor'),
+  ('school_address', 'Jl. Raya Umbulsari, Jepara', 'string', 'School address'),
+  ('school_npsn', '20101234', 'string', 'School NPSN'),
+  ('school_logo', NULL, 'string', 'Base64 encoded school logo'),
+  ('principal_signature', NULL, 'string', 'Base64 encoded principal signature'),
+  ('backup_schedule', 'daily', 'string', 'Backup schedule: daily, weekly, monthly'),
+  ('backup_retention_days', '30', 'number', 'Number of days to retain backups')
+ON CONFLICT (setting_key) DO NOTHING;
+
+-- Seed kategori tugas
+INSERT INTO kategori_tugas (nama, deskripsi, jam_default, is_wali_kelas) VALUES
+  ('Wali Kelas 7', 'Wali kelas jenjang 7', 24, true),
+  ('Wali Kelas 8', 'Wali kelas jenjang 8', 24, true),
+  ('Wali Kelas 9', 'Wali kelas jenjang 9', 24, true)
+ON CONFLICT (nama) DO NOTHING;
+
+INSERT INTO kategori_tugas (nama, deskripsi, jam_default, is_koordinator) VALUES
+  ('Koordinator 7', 'Koordinator jenjang 7', 8, true),
+  ('Koordinator 8', 'Koordinator jenjang 8', 8, true),
+  ('Koordinator 9', 'Koordinator jenjang 9', 8, true),
+  ('Kepala Kurikulum', 'Kepala bagian kurikulum', 40, false),
+  ('Laboran', 'Laboran laboratorium', 20, false),
+  ('Perpustakaan', 'Staf perpustakaan', 20, false)
+ON CONFLICT (nama) DO NOTHING;
+
+-- Seed pengaturan sekolah
+INSERT INTO pengaturan_sekolah (nama_sekolah, alamat) VALUES
+  ('SMP NEGERI 1 UMBULSARI', 'Jl. Raya Umbulsari, Jepara')
+ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- END OF SCHEMA
+-- ============================================================================
